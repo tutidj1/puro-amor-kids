@@ -66,6 +66,8 @@
                     class="px-6 py-2 rounded-md font-bold text-sm transition-colors">STOCK</button>
                 <button onclick="switchAppMode('sales')" id="btn-mode-sales"
                     class="px-6 py-2 rounded-md font-bold text-sm transition-colors">VENTAS</button>
+                <button onclick="switchAppMode('registro')" id="btn-mode-registro"
+                    class="px-6 py-2 rounded-md font-bold text-sm transition-colors text-gray-400">REGISTRO</button>
             </div>
         </div>
         <div class="flex items-center gap-4">
@@ -141,6 +143,86 @@
                 </div>
             </div>
         </main>
+
+        <!-- REGISTRO VIEW (Hidden) -->
+        <div id="registro-view"
+            class="flex-1 h-full flex flex-col w-full relative hidden bg-gray-100 overflow-y-auto p-8">
+
+            <!-- Filters Bar -->
+            <div
+                class="max-w-7xl mx-auto w-full mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex bg-gray-100 rounded-lg p-1">
+                        <button onclick="setFilterMode('day')" id="filter-day"
+                            class="px-4 py-1.5 rounded-md text-sm font-bold bg-white text-gray-900 shadow-sm transition-all">Día</button>
+                        <button onclick="setFilterMode('month')" id="filter-month"
+                            class="px-4 py-1.5 rounded-md text-sm font-bold text-gray-500 hover:text-gray-700 transition-all">Mes</button>
+                    </div>
+                    <div class="relative">
+                        <input type="date" id="date-picker" onchange="renderAnalytics()"
+                            class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-mint focus:border-mint block w-full p-2 pl-10">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-calendar"></i>
+                        </div>
+                    </div>
+                    <div class="relative hidden" id="month-picker-container">
+                        <input type="month" id="month-picker" onchange="renderAnalytics()"
+                            class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-mint focus:border-mint block w-full p-2 pl-10">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-calendar-days"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-400 italic">
+                    <span id="showing-label">Mostrando registros de Hoy</span>
+                </div>
+            </div>
+
+            <!-- Stats Cards (2 Columns now) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-7xl mx-auto w-full">
+                <div
+                    class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide">Ventas</div>
+                        <div id="stats-count" class="text-3xl font-bold text-gray-800 mt-1">0</div>
+                    </div>
+                    <div class="w-12 h-12 bg-mint/10 rounded-full flex items-center justify-center text-mint text-xl">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                </div>
+                <div
+                    class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide">Ingresos</div>
+                        <div id="stats-revenue" class="text-3xl font-bold text-gray-800 mt-1">$0</div>
+                    </div>
+                    <div
+                        class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-xl">
+                        <i class="fa-solid fa-sack-dollar"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Table -->
+            <div class="max-w-7xl mx-auto w-full">
+                <h3 class="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Historial de Ventas
+                </h3>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-xs text-gray-500 uppercase font-bold sticky top-0">
+                            <tr>
+                                <th class="p-4">Fecha</th>
+                                <th class="p-4">Detalle</th>
+                                <th class="p-4 text-center">Items</th>
+                                <th class="p-4 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-history-body" class="divide-y divide-gray-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
         <div id="overlay" onclick="closeDrawer()" class="hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"></div>
 
@@ -245,24 +327,151 @@
         function switchAppMode(mode) {
             appMode = mode;
             closeDrawer();
+
             const btnStock = document.getElementById('btn-mode-stock');
             const btnSales = document.getElementById('btn-mode-sales');
+            const btnRegistro = document.getElementById('btn-mode-registro');
+
+            const mainArea = document.getElementById('main-area');
+            const registroView = document.getElementById('registro-view');
+
             const stockActions = document.getElementById('stock-actions');
 
+            // Reset Buttons
+            [btnStock, btnSales, btnRegistro].forEach(b => {
+                b.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                b.classList.add('text-gray-400', 'bg-transparent');
+            });
+
+            // Reset Views
+            mainArea.classList.remove('hidden');
+            registroView.classList.add('hidden');
+            stockActions.classList.add('hidden');
+
+            if (mode === 'registro') {
+                btnRegistro.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnRegistro.classList.remove('text-gray-400', 'bg-transparent');
+
+                mainArea.classList.add('hidden');
+                registroView.classList.remove('hidden');
+                renderAnalytics(); // New Function
+                return;
+            }
+
             if (mode === 'stock') {
-                btnStock.classList.add('bg-white', 'text-gray-900');
+                btnStock.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
                 btnStock.classList.remove('text-gray-400', 'bg-transparent');
-                btnSales.classList.add('text-gray-400', 'bg-transparent');
-                btnSales.classList.remove('bg-white', 'text-gray-900');
                 stockActions.classList.remove('hidden');
             } else {
-                btnSales.classList.add('bg-white', 'text-gray-900');
+                btnSales.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
                 btnSales.classList.remove('text-gray-400', 'bg-transparent');
-                btnStock.classList.add('text-gray-400', 'bg-transparent');
-                btnStock.classList.remove('bg-white', 'text-gray-900');
-                stockActions.classList.add('hidden');
             }
             renderTable();
+        }
+
+        // NEW: Analytics & History
+        let analyticsMode = 'day'; // 'day' | 'month'
+
+        function setFilterMode(mode) {
+            analyticsMode = mode;
+            const btnDay = document.getElementById('filter-day');
+            const btnMonth = document.getElementById('filter-month');
+            const pickerDay = document.getElementById('date-picker').parentElement;
+            const pickerMonth = document.getElementById('month-picker-container');
+
+            if (mode === 'day') {
+                btnDay.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnDay.classList.remove('text-gray-500', 'hover:text-gray-700');
+                btnMonth.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                btnMonth.classList.add('text-gray-500', 'hover:text-gray-700');
+
+                pickerDay.classList.remove('hidden');
+                pickerMonth.classList.add('hidden');
+            } else {
+                btnMonth.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnMonth.classList.remove('text-gray-500', 'hover:text-gray-700');
+                btnDay.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                btnDay.classList.add('text-gray-500', 'hover:text-gray-700');
+
+                pickerDay.classList.add('hidden');
+                pickerMonth.classList.remove('hidden');
+            }
+            renderAnalytics();
+        }
+
+        function renderAnalytics() {
+            // Set defaults if empty
+            const dateInput = document.getElementById('date-picker');
+            const monthInput = document.getElementById('month-picker');
+            if (!dateInput.value) dateInput.valueAsDate = new Date();
+            if (!monthInput.value) {
+                const now = new Date();
+                const m = (now.getMonth() + 1).toString().padStart(2, '0');
+                monthInput.value = `${now.getFullYear()}-${m}`;
+            }
+
+            const historyBody = document.getElementById('sales-history-body');
+            const localSales = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
+
+            // Sort by Date Desc
+            localSales.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Filter
+            let filteredSales = [];
+            const label = document.getElementById('showing-label');
+
+            if (analyticsMode === 'day') {
+                const selectedDateStr = dateInput.value; // YYYY-MM-DD
+                // Manual match to avoid timezone issues with simple string comparison
+                filteredSales = localSales.filter(s => {
+                    const d = new Date(s.timestamp);
+                    // Format Date to YYYY-MM-DD in local time
+                    const year = d.getFullYear();
+                    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                    const day = d.getDate().toString().padStart(2, '0');
+                    return `${year}-${month}-${day}` === selectedDateStr;
+                });
+                label.innerText = `Mostrando: ${selectedDateStr}`;
+            } else {
+                const selectedMonthStr = monthInput.value; // YYYY-MM
+                filteredSales = localSales.filter(s => {
+                    const d = new Date(s.timestamp);
+                    const year = d.getFullYear();
+                    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                    return `${year}-${month}` === selectedMonthStr;
+                });
+                label.innerText = `Mostrando mes: ${selectedMonthStr}`;
+            }
+
+            const totalRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+
+            document.getElementById('stats-count').innerText = filteredSales.length;
+            document.getElementById('stats-revenue').innerText = `$${totalRevenue.toLocaleString()}`;
+            // document.getElementById('stats-avg').innerText = `$${Math.round(avgTicket).toLocaleString()}`; // Removed
+
+            // Render Table (Max 100 for perf)
+            historyBody.innerHTML = filteredSales.slice(0, 100).map(s => {
+                const dateStart = new Date(s.timestamp);
+                const dateStr = dateStart.toLocaleDateString() + ' ' + dateStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Summarize Items
+                const itemsStr = s.items.map(i => `<span class="block text-gray-600">${i.name} (${i.color}-${i.size}) x${i.qty}</span>`).join('');
+
+                return `
+                    <tr class="hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                        <td class="p-4 font-mono text-xs text-gray-500 whitespace-nowrap align-top">${dateStr}</td>
+                        <td class="p-4 align-top">
+                           ${itemsStr}
+                        </td>
+                        <td class="p-4 text-center align-top font-bold text-gray-600">${s.items.length}</td>
+                        <td class="p-4 text-right align-top font-bold text-gray-900">$${s.total.toLocaleString()}</td>
+                    </tr>
+                `
+            }).join('');
+
+            if (filteredSales.length === 0) {
+                historyBody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-gray-400 italic">No hay ventas registradas en esta fecha.</td></tr>`;
+            }
         }
 
         function filterCategory(cat) {
@@ -711,6 +920,18 @@
                 variant.stock -= item.qty;
             });
 
+            // NEW: Save Sale History
+            const saleRecord = {
+                id: Date.now().toString(),
+                timestamp: Date.now(),
+                total: currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0),
+                items: currentOrder
+            };
+
+            const history = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
+            history.push(saleRecord);
+            localStorage.setItem('puroAmorSales', JSON.stringify(history));
+
             autoSave();
             currentOrder = []; // Reset
             updateMiniCart(); // Update Widget (Hide)
@@ -720,8 +941,8 @@
             requestConfirm(`
                 <div class="text-green-500 text-5xl mb-4"><i class="fa-solid fa-check-circle"></i></div>
                 <div class="text-gray-800 font-bold text-xl">¡Venta Registrada!</div>
-                <div class="text-gray-500 text-sm mt-2">Stock actualizado correctamente.</div>
-            `, () => { closeConfirm(false); renderTable(); });
+                <div class="text-gray-500 text-sm mt-2">Guardada en historial.</div>
+            `, () => { closeConfirm(false); renderTable(); switchAppMode('registro'); });
         }
 
         // NEW: Mini Cart Logic

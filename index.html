@@ -103,7 +103,7 @@
     </nav>
 
     <!-- Hero Section -->
-    <header class="relative bg-mint/10 h-[50vh] flex items-center justify-center overflow-hidden">
+    <header class="relative bg-mint/10 min-h-[75vh] py-12 flex items-center justify-center overflow-hidden">
         <div class="absolute inset-0 z-0">
             <!-- Abstract shapes or Hero Image -->
             <div class="absolute -top-20 -left-20 w-64 h-64 bg-mint/30 rounded-full blur-3xl"></div>
@@ -153,9 +153,11 @@
     </section>
 
     <!-- Footer -->
-    <footer class="bg-gray-800 text-white py-12 mt-12">
+    <footer id="contacto" class="bg-gray-800 text-white py-12 mt-12">
         <div class="max-w-6xl mx-auto px-4 text-center">
             <h3 class="text-4xl font-bold mb-4">Puro Amor Kidss</h3>
+            <p class="text-xl text-gray-300 mb-6 font-bold tracking-wide"><i
+                    class="fa-solid fa-location-dot text-mint mr-2"></i>Dirección Local</p>
             <div class="flex justify-center gap-6 mb-8 text-2xl">
                 <a href="#" class="hover:text-mint transition-colors"><i class="fa-brands fa-instagram"></i></a>
                 <a href="#" class="hover:text-mint transition-colors"><i class="fa-brands fa-facebook"></i></a>
@@ -256,9 +258,12 @@
     <!-- App Logic -->
     <script>
         // State
+        // Data persistence for cart only
         let cart = JSON.parse(localStorage.getItem('puroamor_cart')) || [];
         let currentProduct = null;
-        let selectedSize = null;
+        let selectedVariant = null;
+        // Load products from LocalStorage if available (sync with Admin), else use static file
+        let appProducts = [];
 
         // DOM Elements
         const grid = document.getElementById('product-grid');
@@ -279,59 +284,128 @@
         const addToCartBtn = document.getElementById('add-to-cart-btn');
 
         // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            // Sincronización Local: Intentar leer lo que guardó el Admin
+            const localData = localStorage.getItem('puroAmorData');
+            if (localData) {
+                try {
+                    appProducts = JSON.parse(localData);
+                } catch (e) {
+                    appProducts = [...products]; // Fallback to static file
+                }
+            } else {
+                appProducts = [...products]; // Static file
+            }
+
+            init();
+        });
+
         function init() {
-            renderProducts(products);
+            // Default filter: All
+            filterProducts('all');
             updateCartUI();
         }
 
         // Render Grid
         function renderProducts(items) {
-            grid.innerHTML = items.map(product => `
+            if (items.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center text-gray-400 py-10">No hay productos en esta sección por el momento.</div>';
+                return;
+            }
+
+            grid.innerHTML = items.map(product => {
+                // Determine available sizes count from variants
+                const variants = product.variants || [];
+                const distinctSizes = [...new Set(variants.map(v => v.size))];
+                const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
+                // Fallback for category display if section logic is mixed
+                const displayCat = product.category || (variants[0] ? variants[0].section : 'General');
+
+                return `
                 <div class="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
                     <div class="relative h-64 overflow-hidden cursor-pointer" onclick="openProductModal(${product.id})">
                         <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
                         <div class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold shadow-sm">
                             $${product.price.toLocaleString()}
                         </div>
-                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                        ${totalStock === 0 ? '<div class="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">AGOTADO</div>' : ''}
                     </div>
                     <div class="p-5 text-center">
-                        <h3 class="text-2xl font-bold text-gray-800 mb-1 leading-none">${product.name}</h3>
-                        <p class="text-sm text-gray-500 mb-4">${product.category} • ${product.sizes.length} Talles</p>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-1 leading-none font-heading tracking-wide">${product.name}</h3>
+                        <p class="text-sm text-gray-500 mb-4">${displayCat} • ${distinctSizes.length} Talles</p>
                         <button onclick="openProductModal(${product.id})" class="w-full py-2 rounded-lg border-2 border-mint text-mint font-bold hover:bg-mint hover:text-white transition-colors">
                             Ver Detalles
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
-        // Filter
+        // Filter Logic (Matches Admin + Legacy Fallback)
         function filterProducts(category) {
+            // Update UI buttons
+            const btns = document.querySelectorAll('button[onclick^="filterProducts"]');
+            btns.forEach(b => {
+                if (b.innerText.includes(category === 'all' ? 'Todos' : category) || (category === 'Bebés' && b.innerText.includes('Bebés'))) {
+                    b.classList.remove('bg-white', 'text-gray-600', 'border-gray-200');
+                    b.classList.add('bg-gray-800', 'text-white', 'border-transparent');
+                } else {
+                    b.classList.add('bg-white', 'text-gray-600', 'border-gray-200');
+                    b.classList.remove('bg-gray-800', 'text-white', 'border-transparent');
+                }
+            });
+
             if (category === 'all') {
-                renderProducts(products);
+                renderProducts(appProducts);
             } else {
-                const filtered = products.filter(p => p.category === category);
+                // Filter by Variant Section OR Legacy Category
+                const filtered = appProducts.filter(p => {
+                    const variants = p.variants || [];
+                    // 1. Check if any variant belongs to section
+                    const hasVariant = variants.some(v => v.section === category);
+                    // 2. Fallback: If no variants have section (old data), check product.category
+                    // Also handle simplified legacy categories mapping if needed
+                    const isLegacyMatch = p.category === category;
+
+                    return hasVariant || isLegacyMatch;
+                });
                 renderProducts(filtered);
             }
         }
 
         // Product Modal Logic
         function openProductModal(id) {
-            currentProduct = products.find(p => p.id === id);
-            selectedSize = null; // Reset size
+            currentProduct = appProducts.find(p => p.id === id);
+            selectedVariant = null;
 
             modalImg.src = currentProduct.image;
             modalTitle.innerText = currentProduct.name;
             modalPrice.innerText = `$${currentProduct.price.toLocaleString()}`;
-            modalDesc.innerText = currentProduct.description;
+            modalDesc.innerText = currentProduct.description || (currentProduct.name + ' - Excelente calidad y diseño para los más peques.');
 
-            // Render sizes
-            modalSizes.innerHTML = currentProduct.sizes.map(size => `
-                <button onclick="selectSize('${size}', this)" class="size-btn px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 font-bold hover:border-mint transition-colors focus:outline-none">
-                    ${size}
-                </button>
-            `).join('');
+            // Render Variants Selection
+            // Group variants by Size for simpler selection? Or list specific options "Color X - Talle Y"
+            // Let's filter only variants with stock > 0
+            const availableVariants = (currentProduct.variants || []).filter(v => v.stock > 0);
+
+            if (availableVariants.length === 0) {
+                modalSizes.innerHTML = '<div class="text-red-500 font-bold">Producto Agotado</div>';
+                addToCartBtn.disabled = true;
+                addToCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                addToCartBtn.innerText = 'Sin Stock';
+            } else {
+                addToCartBtn.disabled = false;
+                addToCartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                addToCartBtn.innerText = 'Agregar al Carrito';
+
+                modalSizes.innerHTML = availableVariants.map(v => `
+                    <button onclick="selectVariant(${v.id}, this)" class="variant-btn mb-2 mr-2 px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 text-sm font-bold hover:border-mint transition-colors focus:outline-none flex flex-col items-center min-w-[80px]">
+                        <span>${v.color}</span>
+                        <span class="text-xs text-gray-400">Talle ${v.size}</span>
+                        <span class="text-[10px] bg-gray-100 px-1 rounded mt-1">${v.section || 'U'}</span>
+                    </button>
+                `).join('');
+            }
 
             // Show modal
             productModal.classList.remove('hidden');
@@ -341,10 +415,11 @@
             }, 10);
         }
 
-        function selectSize(size, btn) {
-            selectedSize = size;
+        function selectVariant(variantId, btn) {
+            selectedVariant = currentProduct.variants.find(v => v.id === variantId);
+
             // Visual feedback
-            document.querySelectorAll('.size-btn').forEach(b => {
+            document.querySelectorAll('.variant-btn').forEach(b => {
                 b.classList.remove('bg-mint', 'text-white', 'border-mint');
                 b.classList.add('border-gray-200', 'text-gray-600');
             });
@@ -361,28 +436,31 @@
         }
 
         addToCartBtn.onclick = () => {
-            if (!selectedSize) {
-                alert('Por favor selecciona un talle');
+            if (!selectedVariant) {
+                alert('Por favor selecciona una variante (Color y Talle)');
                 return;
             }
-            addToCart(currentProduct, selectedSize);
+            addToCart(currentProduct, selectedVariant);
             closeProductModal();
-            toggleCart(); // Open cart to show success
+            toggleCart();
         };
 
         // Cart Logic
-        function addToCart(product, size) {
-            const existingItem = cart.find(item => item.id === product.id && item.size === size);
+        function addToCart(product, variant) {
+            // Create a unique ID for the cart item based on Product + Variant
+            const cartItemId = `${product.id}-${variant.id}`;
+            const existingItem = cart.find(item => item.cartId === cartItemId);
 
             if (existingItem) {
                 existingItem.quantity++;
             } else {
                 cart.push({
+                    cartId: cartItemId,
                     id: product.id,
                     name: product.name,
                     price: product.price,
                     image: product.image,
-                    size: size,
+                    variantStr: `${variant.color} - Talle ${variant.size}`,
                     quantity: 1
                 });
             }
@@ -397,16 +475,11 @@
         }
 
         function updateCartUI() {
-            // Update Badge
             const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
             cartCount.innerText = totalItems;
-            if (totalItems > 0) {
-                cartCount.classList.remove('scale-0');
-            } else {
-                cartCount.classList.add('scale-0');
-            }
+            if (totalItems > 0) cartCount.classList.remove('scale-0');
+            else cartCount.classList.add('scale-0');
 
-            // Update List
             if (cart.length === 0) {
                 cartItemsContainer.innerHTML = `
                     <div class="text-center text-gray-400 mt-10">
@@ -421,7 +494,7 @@
                         <img src="${item.image}" class="w-16 h-16 rounded-lg object-cover">
                         <div class="flex-1">
                             <h4 class="font-bold text-gray-800 text-sm">${item.name}</h4>
-                            <p class="text-xs text-gray-500">Talle: ${item.size} | x${item.quantity}</p>
+                            <p class="text-xs text-gray-500">${item.variantStr} | x${item.quantity}</p>
                             <p class="font-bold text-mint">$${(item.price * item.quantity).toLocaleString()}</p>
                         </div>
                         <button onclick="removeFromCart(${index})" class="text-gray-300 hover:text-red-500 p-2">
@@ -431,7 +504,6 @@
                 `).join('');
             }
 
-            // Update Total
             const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
             cartTotal.innerText = `$${total.toLocaleString()}`;
         }
@@ -459,24 +531,16 @@
         // WhatsApp Checkout
         function checkout() {
             if (cart.length === 0) return;
-
-            const phoneNumber = "5493424687719"; // Replace with real number
+            const phoneNumber = "5491122334455"; // Example
             let message = "Hola *Puro Amor*! 💕 Quiero realizar el siguiente pedido:\n\n";
-
             cart.forEach(item => {
-                message += `• ${item.name} (Talle: ${item.size}) x${item.quantity}\n`;
+                message += `• ${item.name} (${item.variantStr}) x${item.quantity}\n`;
             });
-
             const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
             message += `\n*Total estimado: $${total.toLocaleString()}*`;
-            message += `\n\nQuedo a la espera para coordinar el pago (Efectivo/Transferencia). Gracias!`;
-
-            const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-            window.open(url, '_blank');
+            message += `\n\nQuedo a la espera para coordinar el pago. Gracias!`;
+            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
         }
-
-        // Start
-        init();
     </script>
 </body>
 

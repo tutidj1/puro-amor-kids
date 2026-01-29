@@ -4,8 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Puro Amor Kidss</title>
-    <!-- Tailwind CSS -->
+    <title>Puro Amor Kids - Sistema</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -24,264 +23,991 @@
         body {
             font-family: 'Quicksand', sans-serif
         }
+
+        .drawer-sheet {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .drawer-open {
+            transform: translateX(0);
+        }
+
+        .drawer-closed {
+            transform: translateX(-100%);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
     </style>
 </head>
 
-<body class="bg-gray-100 p-8">
+<body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
 
-    <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="font-heading text-5xl font-bold text-gray-800">Panel de Administración</h1>
-            <a href="index.html" class="text-mint font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i>
-                Volver a la Tienda</a>
-        </div>
-
-        <!-- Warning Config -->
-        <div class="bg-yellow-50 border-l-4 border-mustard p-4 mb-8 rounded shadow-sm">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <i class="fa-solid fa-triangle-exclamation text-mustard"></i>
-                </div>
-                <div class="ml-3">
-                    <p class="text-sm text-yellow-800 font-bold">IMPORTANTE: Sistema sin Base de Datos</p>
-                    <p class="text-sm text-yellow-700 mt-1">
-                        1. Haz tus cambios aquí (agregar/borrar/editar).<br>
-                        2. Cuando termines, haz clic en el botón verde <strong>"Generar Código de
-                            Inventario"</strong>.<br>
-                        3. Copia ese código y pégalo en el archivo <code>products.js</code> de tu carpeta.
-                    </p>
-                </div>
+    <!-- Header -->
+    <header class="bg-gray-900 text-white shadow-md z-20 flex-none h-16 flex items-center justify-between px-6">
+        <div class="flex items-center gap-6">
+            <h1 class="font-heading text-3xl font-bold text-mint">Puro Amor Kids</h1>
+            <div class="flex bg-gray-800 rounded-lg p-1">
+                <button onclick="switchAppMode('stock')" id="btn-mode-stock"
+                    class="px-6 py-2 rounded-md font-bold text-sm transition-colors">STOCK</button>
+                <button onclick="switchAppMode('sales')" id="btn-mode-sales"
+                    class="px-6 py-2 rounded-md font-bold text-sm transition-colors">VENTAS</button>
+                <button onclick="switchAppMode('registro')" id="btn-mode-registro"
+                    class="px-6 py-2 rounded-md font-bold text-sm transition-colors text-gray-400">REGISTRO</button>
             </div>
         </div>
+        <div class="flex items-center gap-4">
+            <div id="save-status" class="text-xs font-bold text-gray-500 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-green-500"></span> Guardado
+            </div>
+            <div id="stock-actions" class="hidden">
+                <button onclick="openStockDrawer(null)"
+                    class="bg-mint text-white px-4 py-2 rounded-lg font-bold hover:brightness-110 transition text-sm">
+                    <i class="fa-solid fa-plus mr-2"></i> Nuevo Producto
+                </button>
+            </div>
+            <button onclick="saveToDisk()"
+                class="bg-gray-700 text-gray-300 px-3 py-2 rounded-lg font-bold hover:bg-gray-600 transition text-xs flex items-center gap-2">
+                <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">Backup</span>
+            </button>
+        </div>
+    </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Form Section -->
-            <div class="lg:col-span-1">
-                <div class="bg-white p-6 rounded-2xl shadow-lg sticky top-8">
-                    <h2 class="text-2xl font-bold mb-4 text-gray-800" id="form-title">Agregar Producto</h2>
-                    <form id="product-form" onsubmit="handleForm(event)">
-                        <input type="hidden" id="prod-id">
+    <div class="flex flex-1 overflow-hidden relative">
 
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Nombre</label>
-                                <input type="text" id="prod-name" required
-                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
-                                    placeholder="Ej: Body Rayado">
-                            </div>
+        <!-- Drawer -->
+        <aside id="drawer"
+            class="drawer-sheet drawer-closed fixed top-0 left-0 h-screen w-[600px] bg-white shadow-2xl z-50 flex flex-col border-r border-gray-200">
+            <div class="p-5 border-b flex justify-between items-center bg-gray-50 h-16 flex-none">
+                <h2 id="drawer-title" class="text-2xl font-bold text-gray-800"></h2>
+                <button onclick="closeDrawer()" class="text-gray-400 hover:text-red-500 text-2xl px-2"><i
+                        class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-8 text-gray-800" id="drawer-body"></div>
+            <div class="p-5 border-t bg-gray-50 flex-none" id="drawer-footer"></div>
+        </aside>
 
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Precio ($)</label>
-                                <input type="number" id="prod-price" required
-                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
-                                    placeholder="15000">
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">URL Imagen</label>
-                                <input type="url" id="prod-image" required
-                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
-                                    placeholder="https://...">
-                                <p class="text-xs text-gray-400 mt-1">Usa links de imágenes (click derecho > copiar
-                                    dirección de imagen).</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Categoría</label>
-                                <select id="prod-category" class="w-full border-gray-300 rounded-lg p-2 border">
-                                    <option value="Bebés">Bebés</option>
-                                    <option value="Niñas">Niñas</option>
-                                    <option value="Niños">Niños</option>
-                                    <option value="Kits">Kits</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Talles (Separados
-                                    por coma)</label>
-                                <input type="text" id="prod-sizes" required
-                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
-                                    placeholder="0-3m, 3-6m, 6-9m">
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Descripción</label>
-                                <textarea id="prod-desc" rows="3"
-                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
-                                    placeholder="Detalles de la prenda..."></textarea>
-                            </div>
-
-                            <div class="pt-4 flex gap-2">
-                                <button type="submit"
-                                    class="flex-1 bg-gray-800 text-white font-bold py-2 rounded-lg hover:bg-black transition-colors">Guardar</button>
-                                <button type="button" onclick="resetForm()"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50">Cancelar</button>
-                            </div>
-                        </div>
-                    </form>
+        <!-- Main -->
+        <main class="flex-1 h-full flex flex-col w-full relative" id="main-area">
+            <div class="bg-white px-8 pt-6 border-b flex justify-between items-end flex-none">
+                <div class="flex gap-6 overflow-x-auto">
+                    <button onclick="filterCategory('Todo')"
+                        class="cat-tab pb-3 text-lg font-bold text-gray-400 hover:text-gray-600 border-b-4 border-transparent"
+                        data-cat="Todo">Todo</button>
+                    <button onclick="filterCategory('Niños')"
+                        class="cat-tab pb-3 text-lg font-bold text-gray-400 hover:text-gray-600 border-b-4 border-transparent"
+                        data-cat="Niños">Niños</button>
+                    <button onclick="filterCategory('Niñas')"
+                        class="cat-tab pb-3 text-lg font-bold text-gray-400 hover:text-gray-600 border-b-4 border-transparent"
+                        data-cat="Niñas">Niñas</button>
+                    <button onclick="filterCategory('Bebés')"
+                        class="cat-tab pb-3 text-lg font-bold text-gray-400 hover:text-gray-600 border-b-4 border-transparent"
+                        data-cat="Bebés">Bebes RN</button>
+                </div>
+                <div class="pb-3 relative w-64">
+                    <input type="text" id="global-search" oninput="handleSearch(this.value)"
+                        placeholder="Buscar producto..."
+                        class="w-full pl-10 pr-4 py-2 bg-gray-100 border-transparent focus:bg-white focus:border-mint rounded-full text-sm transition-all outline-none border">
+                    <i class="fa-solid fa-search absolute left-4 top-1/2 -translate-y-[60%] text-gray-400"></i>
                 </div>
             </div>
 
-            <!-- List Section -->
-            <div class="lg:col-span-2">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-gray-800">Inventario Actual (<span id="count">0</span>)</h2>
-                    <button onclick="generateCode()"
-                        class="bg-green-500 text-white px-6 py-2 rounded-full font-bold shadow hover:bg-green-600 transition-colors flex items-center gap-2">
-                        <i class="fa-solid fa-code"></i> Generar Código de Inventario
-                    </button>
-                </div>
-
-                <div class="bg-white rounded-2xl shadow overflow-hidden">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-gray-50">
+            <div class="flex-1 overflow-y-auto p-8 bg-gray-100">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-h-[500px]">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-xs text-gray-500 uppercase font-bold sticky top-0 z-10">
                             <tr>
-                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Img</th>
-                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Producto</th>
-                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Precio</th>
-                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Cat</th>
-                                <th class="p-4 text-xs font-bold text-gray-500 uppercase text-right">Acciones</th>
+                                <th class="p-4 w-20">Imagen</th>
+                                <th class="p-4">Producto</th>
+                                <th class="p-4 text-center">Stock Total</th>
+                                <th class="p-4">Precio</th>
+                                <th class="p-4 text-right">Acción</th>
                             </tr>
                         </thead>
-                        <tbody id="inventory-list" class="divide-y divide-gray-100">
-                            <!-- Items injected here -->
-                        </tbody>
+                        <tbody id="inventory-table" class="divide-y divide-gray-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <!-- REGISTRO VIEW (Hidden) -->
+        <div id="registro-view"
+            class="flex-1 h-full flex flex-col w-full relative hidden bg-gray-100 overflow-y-auto p-8">
+
+            <!-- Filters Bar -->
+            <div
+                class="max-w-7xl mx-auto w-full mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex bg-gray-100 rounded-lg p-1">
+                        <button onclick="setFilterMode('day')" id="filter-day"
+                            class="px-4 py-1.5 rounded-md text-sm font-bold bg-white text-gray-900 shadow-sm transition-all">Día</button>
+                        <button onclick="setFilterMode('month')" id="filter-month"
+                            class="px-4 py-1.5 rounded-md text-sm font-bold text-gray-500 hover:text-gray-700 transition-all">Mes</button>
+                    </div>
+                    <div class="relative">
+                        <input type="date" id="date-picker" onchange="renderAnalytics()"
+                            class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-mint focus:border-mint block w-full p-2 pl-10">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-calendar"></i>
+                        </div>
+                    </div>
+                    <div class="relative hidden" id="month-picker-container">
+                        <input type="month" id="month-picker" onchange="renderAnalytics()"
+                            class="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-mint focus:border-mint block w-full p-2 pl-10">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <i class="fa-solid fa-calendar-days"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-400 italic">
+                    <span id="showing-label">Mostrando registros de Hoy</span>
+                </div>
+            </div>
+
+            <!-- Stats Cards (2 Columns now) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-7xl mx-auto w-full">
+                <div
+                    class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide">Ventas</div>
+                        <div id="stats-count" class="text-3xl font-bold text-gray-800 mt-1">0</div>
+                    </div>
+                    <div class="w-12 h-12 bg-mint/10 rounded-full flex items-center justify-center text-mint text-xl">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                </div>
+                <div
+                    class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wide">Ingresos</div>
+                        <div id="stats-revenue" class="text-3xl font-bold text-gray-800 mt-1">$0</div>
+                    </div>
+                    <div
+                        class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-xl">
+                        <i class="fa-solid fa-sack-dollar"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Table -->
+            <div class="max-w-7xl mx-auto w-full">
+                <h3 class="font-bold text-xl text-gray-800 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Historial de Ventas
+                </h3>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-xs text-gray-500 uppercase font-bold sticky top-0">
+                            <tr>
+                                <th class="p-4">Fecha</th>
+                                <th class="p-4">Detalle</th>
+                                <th class="p-4 text-center">Items</th>
+                                <th class="p-4 text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sales-history-body" class="divide-y divide-gray-100 text-sm"></tbody>
                     </table>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Code Modal -->
-    <div id="code-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl w-full max-w-3xl p-6 relative">
-            <button onclick="document.getElementById('code-modal').classList.add('hidden')"
-                class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
-            <h3 class="text-2xl font-bold mb-2">¡Inventario Listo!</h3>
-            <p class="text-sm text-gray-500 mb-4">Copia todo este código y reemplaza el contenido del archivo
-                <code>products.js</code>.</p>
-            <textarea id="code-output"
-                class="w-full h-64 bg-gray-900 text-green-400 font-mono text-xs p-4 rounded-lg mb-4"
-                readonly></textarea>
-            <button onclick="copyCode()"
-                class="w-full bg-mint text-white font-bold py-3 rounded-lg hover:bg-[#8BCBCB]">Copiar al
-                Portapapeles</button>
+        <div id="overlay" onclick="closeDrawer()" class="hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"></div>
+
+        <!-- Confirm Modal -->
+        <div id="confirm-modal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl scale-100 transition-transform">
+                <div class="text-center mb-4">
+                    <div
+                        class="w-16 h-16 bg-yellow-100 text-mustard rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                        <i class="fa-solid fa-question"></i>
+                    </div>
+                    <h3 class="font-bold text-xl text-gray-900">¿Estás seguro?</h3>
+                    <div id="confirm-msg" class="text-gray-500 mt-2 text-sm leading-relaxed"></div>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirm(false)"
+                        class="flex-1 px-4 py-3 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200">Cancelar</button>
+                    <button onclick="closeConfirm(true)"
+                        class="flex-1 px-4 py-3 bg-gray-900 text-white font-bold rounded-lg hover:bg-black">Confirmar</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Load Data -->
+    <textarea id="code-output" class="hidden"></textarea>
+
     <script src="products.js"></script>
     <script>
-        // Init with data from products.js
-        let inventory = [...products];
+        // State
+        let appMode = 'stock';
+        let currentInventory = [];
+        let currentCategory = 'Todo';
+        let searchQuery = '';
+        let editingId = null;
+        let tempVariants = [];
+        let pendingAction = null;
 
-        const form = document.getElementById('product-form');
-        const list = document.getElementById('inventory-list');
-        const count = document.getElementById('count');
+        // NEW: POS Order State
+        let currentOrder = [];
 
-        function render() {
-            count.innerText = inventory.length;
-            list.innerHTML = inventory.map((p, index) => `
-                <tr class="hover:bg-gray-50 transition-colors group">
-                    <td class="p-4 w-16">
-                        <img src="${p.image}" class="w-10 h-10 rounded object-cover bg-gray-100">
+        const drawer = document.getElementById('drawer');
+        const overlay = document.getElementById('overlay');
+        const drawerBody = document.getElementById('drawer-body');
+        const drawerFooter = document.getElementById('drawer-footer');
+        const drawerTitle = document.getElementById('drawer-title');
+        const confirmModal = document.getElementById('confirm-modal');
+        const confirmMsg = document.getElementById('confirm-msg');
+        const statusEl = document.getElementById('save-status');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            switchAppMode('stock');
+        });
+
+        // --- Data & Persistence ---
+        function loadData() {
+            const local = localStorage.getItem('puroAmorData');
+            if (local) {
+                try {
+                    currentInventory = JSON.parse(local);
+                } catch (e) {
+                    currentInventory = [...products];
+                }
+            } else {
+                currentInventory = [...products];
+            }
+            // Migration
+            currentInventory.forEach(p => { if (!p.variants) p.variants = []; });
+            renderTable();
+        }
+
+        function autoSave() {
+            localStorage.setItem('puroAmorData', JSON.stringify(currentInventory));
+            statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-yellow-400"></span> Guardando...';
+            setTimeout(() => {
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Guardado';
+            }, 800);
+        }
+
+        function saveToDisk() {
+            const data = `const products = ${JSON.stringify(currentInventory, null, 4)};`;
+            document.getElementById('code-output').value = data;
+            document.getElementById('code-output').select();
+            document.execCommand('copy');
+            alert('Backup copiado. Pégalo en products.js.');
+        }
+
+        // --- Confirm ---
+        function requestConfirm(message, callback) {
+            confirmMsg.innerHTML = message;
+            confirmModal.classList.remove('hidden');
+            pendingAction = callback;
+        }
+
+        function closeConfirm(confirmed) {
+            confirmModal.classList.add('hidden');
+            if (confirmed && pendingAction) pendingAction();
+            pendingAction = null;
+        }
+
+        // --- Logic ---
+        function switchAppMode(mode) {
+            appMode = mode;
+            closeDrawer();
+
+            const btnStock = document.getElementById('btn-mode-stock');
+            const btnSales = document.getElementById('btn-mode-sales');
+            const btnRegistro = document.getElementById('btn-mode-registro');
+
+            const mainArea = document.getElementById('main-area');
+            const registroView = document.getElementById('registro-view');
+
+            const stockActions = document.getElementById('stock-actions');
+
+            // Reset Buttons
+            [btnStock, btnSales, btnRegistro].forEach(b => {
+                b.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                b.classList.add('text-gray-400', 'bg-transparent');
+            });
+
+            // Reset Views
+            mainArea.classList.remove('hidden');
+            registroView.classList.add('hidden');
+            stockActions.classList.add('hidden');
+
+            if (mode === 'registro') {
+                btnRegistro.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnRegistro.classList.remove('text-gray-400', 'bg-transparent');
+
+                mainArea.classList.add('hidden');
+                registroView.classList.remove('hidden');
+                renderAnalytics(); // New Function
+                return;
+            }
+
+            if (mode === 'stock') {
+                btnStock.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnStock.classList.remove('text-gray-400', 'bg-transparent');
+                stockActions.classList.remove('hidden');
+            } else {
+                btnSales.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnSales.classList.remove('text-gray-400', 'bg-transparent');
+            }
+            renderTable();
+        }
+
+        // NEW: Analytics & History
+        let analyticsMode = 'day'; // 'day' | 'month'
+
+        function setFilterMode(mode) {
+            analyticsMode = mode;
+            const btnDay = document.getElementById('filter-day');
+            const btnMonth = document.getElementById('filter-month');
+            const pickerDay = document.getElementById('date-picker').parentElement;
+            const pickerMonth = document.getElementById('month-picker-container');
+
+            if (mode === 'day') {
+                btnDay.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnDay.classList.remove('text-gray-500', 'hover:text-gray-700');
+                btnMonth.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                btnMonth.classList.add('text-gray-500', 'hover:text-gray-700');
+
+                pickerDay.classList.remove('hidden');
+                pickerMonth.classList.add('hidden');
+            } else {
+                btnMonth.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                btnMonth.classList.remove('text-gray-500', 'hover:text-gray-700');
+                btnDay.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                btnDay.classList.add('text-gray-500', 'hover:text-gray-700');
+
+                pickerDay.classList.add('hidden');
+                pickerMonth.classList.remove('hidden');
+            }
+            renderAnalytics();
+        }
+
+        function renderAnalytics() {
+            // Set defaults if empty
+            const dateInput = document.getElementById('date-picker');
+            const monthInput = document.getElementById('month-picker');
+            if (!dateInput.value) dateInput.valueAsDate = new Date();
+            if (!monthInput.value) {
+                const now = new Date();
+                const m = (now.getMonth() + 1).toString().padStart(2, '0');
+                monthInput.value = `${now.getFullYear()}-${m}`;
+            }
+
+            const historyBody = document.getElementById('sales-history-body');
+            const localSales = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
+
+            // Sort by Date Desc
+            localSales.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Filter
+            let filteredSales = [];
+            const label = document.getElementById('showing-label');
+
+            if (analyticsMode === 'day') {
+                const selectedDateStr = dateInput.value; // YYYY-MM-DD
+                // Manual match to avoid timezone issues with simple string comparison
+                filteredSales = localSales.filter(s => {
+                    const d = new Date(s.timestamp);
+                    // Format Date to YYYY-MM-DD in local time
+                    const year = d.getFullYear();
+                    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                    const day = d.getDate().toString().padStart(2, '0');
+                    return `${year}-${month}-${day}` === selectedDateStr;
+                });
+                label.innerText = `Mostrando: ${selectedDateStr}`;
+            } else {
+                const selectedMonthStr = monthInput.value; // YYYY-MM
+                filteredSales = localSales.filter(s => {
+                    const d = new Date(s.timestamp);
+                    const year = d.getFullYear();
+                    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                    return `${year}-${month}` === selectedMonthStr;
+                });
+                label.innerText = `Mostrando mes: ${selectedMonthStr}`;
+            }
+
+            const totalRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+
+            document.getElementById('stats-count').innerText = filteredSales.length;
+            document.getElementById('stats-revenue').innerText = `$${totalRevenue.toLocaleString()}`;
+            // document.getElementById('stats-avg').innerText = `$${Math.round(avgTicket).toLocaleString()}`; // Removed
+
+            // Render Table (Max 100 for perf)
+            historyBody.innerHTML = filteredSales.slice(0, 100).map(s => {
+                const dateStart = new Date(s.timestamp);
+                const dateStr = dateStart.toLocaleDateString() + ' ' + dateStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Summarize Items
+                const itemsStr = s.items.map(i => `<span class="block text-gray-600">${i.name} (${i.color}-${i.size}) x${i.qty}</span>`).join('');
+
+                return `
+                    <tr class="hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                        <td class="p-4 font-mono text-xs text-gray-500 whitespace-nowrap align-top">${dateStr}</td>
+                        <td class="p-4 align-top">
+                           ${itemsStr}
+                        </td>
+                        <td class="p-4 text-center align-top font-bold text-gray-600">${s.items.length}</td>
+                        <td class="p-4 text-right align-top font-bold text-gray-900">$${s.total.toLocaleString()}</td>
+                    </tr>
+                `
+            }).join('');
+
+            if (filteredSales.length === 0) {
+                historyBody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-gray-400 italic">No hay ventas registradas en esta fecha.</td></tr>`;
+            }
+        }
+
+        function filterCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-tab').forEach(btn => {
+                if (btn.dataset.cat === cat) {
+                    btn.classList.add('text-gray-800', 'border-mint');
+                    btn.classList.remove('text-gray-400', 'border-transparent');
+                } else {
+                    btn.classList.remove('text-gray-800', 'border-mint');
+                    btn.classList.add('text-gray-400', 'border-transparent');
+                }
+            });
+            renderTable();
+        }
+
+        function handleSearch(val) {
+            searchQuery = val.toLowerCase();
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('inventory-table');
+
+            // SMART FILTER: Check variants for category match
+            let filtered = currentInventory.filter(p => {
+                if (currentCategory === 'Todo') return true;
+                // Check if ANY variant matches the current section OR (fallback) legacy category matches
+                const hasVariantInSection = (p.variants || []).some(v => v.section === currentCategory);
+                const isLegacyMatch = p.category === currentCategory;
+                return hasVariantInSection || isLegacyMatch;
+            });
+
+            if (searchQuery) {
+                filtered = filtered.filter(p => p.name.toLowerCase().includes(searchQuery));
+            }
+
+            tbody.innerHTML = filtered.map(p => {
+                const totalStock = (p.variants || []).reduce((sum, v) => sum + v.stock, 0);
+                const stockColor = totalStock === 0 ? 'text-red-500 bg-red-50' : (totalStock < 5 ? 'text-yellow-600 bg-yellow-50' : 'text-green-600 bg-green-50');
+                const actionIcon = appMode === 'stock' ? '<i class="fa-solid fa-pen"></i>' : '<i class="fa-solid fa-cart-plus"></i>';
+                const actionClass = appMode === 'stock' ? 'bg-gray-100 text-gray-600' : 'bg-mint text-white shadow-md hover:brightness-105';
+
+                return `
+                <tr class="hover:bg-gray-50 transition cursor-pointer group" onclick="itemClick(${p.id})">
+                    <td class="p-4">
+                        <img src="${p.image}" class="w-12 h-12 rounded-lg object-cover bg-gray-200 shadow-sm border border-gray-100">
                     </td>
                     <td class="p-4">
-                        <div class="font-bold text-gray-800">${p.name}</div>
-                        <div class="text-xs text-gray-400 truncate max-w-[200px]">${p.description}</div>
+                        <div class="font-bold text-gray-800 text-base">${p.name}</div>
                     </td>
-                    <td class="p-4 font-mono text-sm">$${p.price.toLocaleString()}</td>
-                    <td class="p-4">
-                        <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">${p.category}</span>
+                    <td class="p-4 text-center">
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${stockColor}">${totalStock} dispo</span>
                     </td>
+                    <td class="p-4 font-mono text-gray-600 font-bold">$${p.price.toLocaleString()}</td>
                     <td class="p-4 text-right">
-                        <button onclick="editItem(${p.id})" class="text-blue-400 hover:text-blue-600 mr-2"><i class="fa-solid fa-pen"></i></button>
-                        <button onclick="deleteItem(${p.id})" class="text-red-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        <button class="w-10 h-10 rounded-full ${actionClass} flex items-center justify-center transition-all">
+                            ${actionIcon}
+                        </button>
                     </td>
                 </tr>
+                `
+            }).join('');
+        }
+
+        function itemClick(id) {
+            if (appMode === 'stock') openStockDrawer(id);
+            else openSalesDrawer(id);
+        }
+
+        // --- STOCK DRAWER (Edit / New) ---
+        function openStockDrawer(id) {
+            editingId = id;
+
+            // Common UI Parts
+            const renderForm = (name, price, image) => `
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4">
+                        <h3 class="text-xs font-bold uppercase text-gray-400">Datos Principales</h3>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Nombre de la Prenda</label>
+                            <input type="text" id="edit-name" value="${name}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:bg-white focus:outline-none focus:border-mint font-bold text-gray-800 text-lg placeholder-gray-300" placeholder="Ej: Body Rayado">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">Precio ($)</label>
+                                <input type="number" id="edit-price" value="${price}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:border-mint focus:outline-none font-mono font-bold" placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">Imagen (URL)</label>
+                                <input type="text" id="edit-image" value="${image}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:border-mint focus:outline-none text-xs" placeholder="https://...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                        <h3 class="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-tags text-mint"></i> Variantes & Stock
+                        </h3>
+                        
+                        <!-- Add Variant Inline Form -->
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4">
+                            <div class="grid grid-cols-12 gap-2 items-end">
+                                <div class="col-span-3">
+                                    <label class="text-xs font-bold text-gray-400 block mb-1">Sección</label>
+                                    <select id="new-var-section" class="w-full border p-2 rounded text-sm bg-white font-bold text-gray-700">
+                                        <option value="Bebés">Bebé</option>
+                                        <option value="Niños">Niño</option>
+                                        <option value="Niñas">Niña</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-3">
+                                    <label class="text-xs font-bold text-gray-400 block mb-1">Color</label>
+                                    <input type="text" id="new-var-color" placeholder="Ej: Rojo" class="w-full border p-2 rounded text-sm">
+                                </div>
+                                <div class="col-span-3">
+                                    <label class="text-xs font-bold text-gray-400 block mb-1">Talle</label>
+                                    <input type="text" id="new-var-size" placeholder="Ej: 4" class="w-full border p-2 rounded text-sm">
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="text-xs font-bold text-gray-400 block mb-1">Cant.</label>
+                                    <input type="number" id="new-var-stock" placeholder="1" class="w-full border p-2 rounded text-sm text-center font-bold">
+                                </div>
+                                <div class="col-span-1">
+                                    <button onclick="addVariant()" class="w-full bg-gray-900 text-white h-[38px] rounded hover:bg-black flex items-center justify-center transition">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- List -->
+                        <div id="variants-list" class="space-y-2 max-h-[300px] overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            `;
+
+            if (id) {
+                const p = currentInventory.find(x => x.id === id);
+                tempVariants = JSON.parse(JSON.stringify(p.variants || []));
+                drawerTitle.innerText = 'Editar Producto';
+                drawerBody.innerHTML = renderForm(p.name, p.price, p.image);
+                drawerFooter.innerHTML = `
+                    <div class="space-y-3">
+                        <button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl hover:bg-[#8BCBCB] shadow-lg text-lg">Guardar Cambios</button>
+                        <button onclick="preDeleteCheck()" class="w-full text-red-400 text-sm font-bold hover:text-red-600">Eliminar Producto</button>
+                    </div>
+                `;
+            } else {
+                editingId = null;
+                tempVariants = [];
+                drawerTitle.innerText = 'Nuevo Producto';
+                drawerBody.innerHTML = renderForm('', '', '');
+                drawerFooter.innerHTML = `<button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl shadow-lg text-lg">Crear Producto</button>`;
+            }
+
+            renderStockVariants();
+            openDrawerAnimation();
+        }
+
+        function renderStockVariants() {
+            const list = document.getElementById('variants-list');
+            if (tempVariants.length === 0) {
+                list.innerHTML = '<div class="text-gray-400 text-center py-4 text-sm italic">No tiene variantes cargadas.</div>';
+                return;
+            }
+            list.innerHTML = tempVariants.map((v, idx) => `
+                <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm text-sm group hover:border-mint transition">
+                    <div class="flex items-center gap-3">
+                        <span class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wide px-2 py-1 rounded font-bold">${v.section || 'Bebés'}</span>
+                        <div>
+                            <div class="font-bold text-gray-800">${v.color}</div>
+                            <div class="text-xs text-gray-400">Talle: ${v.size}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center bg-gray-50 rounded-lg p-1 border">
+                            <button onclick="quickStock(${idx}, -1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white rounded transition"><i class="fa-solid fa-minus text-xs"></i></button>
+                            <span class="w-8 text-center font-bold text-gray-800">${v.stock}</span>
+                            <button onclick="quickStock(${idx}, 1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-white rounded transition"><i class="fa-solid fa-plus text-xs"></i></button>
+                        </div>
+                        <button onclick="removeVariant(${idx})" class="text-gray-300 hover:text-red-500 w-8 h-8 flex items-center justify-center rounded hover:bg-red-50 transition">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
             `).join('');
         }
 
-        function handleForm(e) {
-            e.preventDefault();
-            const id = document.getElementById('prod-id').value;
+        function addVariant() {
+            const section = document.getElementById('new-var-section').value;
+            const color = document.getElementById('new-var-color').value.trim();
+            const size = document.getElementById('new-var-size').value.trim();
+            const stock = parseInt(document.getElementById('new-var-stock').value) || 0;
 
-            const newItem = {
-                id: id ? parseInt(id) : Date.now(), // Generate unique ID if new
-                name: document.getElementById('prod-name').value,
-                price: parseInt(document.getElementById('prod-price').value),
-                image: document.getElementById('prod-image').value,
-                category: document.getElementById('prod-category').value,
-                sizes: document.getElementById('prod-sizes').value.split(',').map(s => s.trim()),
-                description: document.getElementById('prod-desc').value
+            if (!color || !size) return alert('Por favor completa Color y Talle');
+
+            tempVariants.push({ id: Date.now(), section, color, size, stock });
+
+            document.getElementById('new-var-color').value = '';
+            document.getElementById('new-var-size').value = '';
+            document.getElementById('new-var-stock').value = ''; // Reset stock to default placeholder
+            renderStockVariants();
+        }
+
+        function quickStock(idx, delta) {
+            const newStock = tempVariants[idx].stock + delta;
+            if (newStock < 0) return;
+            tempVariants[idx].stock = newStock;
+            renderStockVariants();
+        }
+
+        function removeVariant(index) {
+            tempVariants.splice(index, 1);
+            renderStockVariants();
+        }
+
+        // --- Save Logic ---
+        function preSaveCheck() {
+            const name = document.getElementById('edit-name').value;
+            if (!name) return alert('Falta el nombre de la prenda');
+            if (tempVariants.length === 0 && !confirm('¿Guardar sin variantes (stock 0)?')) return;
+
+            const action = editingId ? "editar" : "agregar";
+            const msg = `
+                <div>¿Estás seguro de <strong>${action}</strong> esta prenda?</div>
+                <div class="font-bold text-lg text-gray-800 my-2">${name}</div>
+                <ul class="text-left bg-gray-50 p-3 rounded text-sm text-gray-600 space-y-1">
+                    <li>Variantes: ${tempVariants.length}</li>
+                    <li>Stock Total: ${tempVariants.reduce((a, b) => a + b.stock, 0)}</li>
+                </ul>
+                <div class="mt-2 text-xs text-gray-400">Se guardará automáticamente.</div>
+            `;
+
+            requestConfirm(msg, () => {
+                const newProduct = {
+                    id: editingId || Date.now(),
+                    name: name,
+                    price: parseInt(document.getElementById('edit-price').value) || 0,
+                    image: document.getElementById('edit-image').value,
+                    // Legacy Category Field: We just pick the most common section or default
+                    category: tempVariants.length > 0 ? tempVariants[0].section : 'General',
+                    variants: tempVariants
+                };
+
+                if (editingId) {
+                    const idx = currentInventory.findIndex(p => p.id === editingId);
+                    currentInventory[idx] = newProduct;
+                } else {
+                    currentInventory.push(newProduct);
+                }
+                autoSave();
+                closeDrawer();
+                renderTable();
+            });
+        }
+
+        function preDeleteCheck() {
+            requestConfirm('¿Seguro quieres <strong>ELIMINAR</strong> esta prenda y todo su stock?<br>Esta acción no se puede deshacer.', () => {
+                currentInventory = currentInventory.filter(p => p.id !== editingId);
+                autoSave();
+                closeDrawer();
+                renderTable();
+            });
+        }
+
+        // --- SALES DRAWER & POS CART LOGIC ---
+        function openSalesDrawer(id) {
+            const p = currentInventory.find(x => x.id === id);
+            editingId = id;
+            drawerTitle.innerText = 'Agregar al Pedido';
+
+            // Filter variants with stock > 0
+            const availableVariants = (p.variants || []).filter(v => v.stock > 0);
+
+            drawerBody.innerHTML = `
+                <div class="flex gap-4 mb-6">
+                    <img src="${p.image}" class="w-20 h-20 rounded object-cover border bg-white">
+                    <div>
+                        <h3 class="font-bold text-xl text-gray-800 leading-tight">${p.name}</h3>
+                        <p class="font-mono font-bold text-gray-500 mt-1">$${p.price.toLocaleString()}</p>
+                    </div>
+                </div>
+                ${availableVariants.length ? `
+                <div class="grid grid-cols-1 gap-2">
+                     ${availableVariants.map(v => `
+                        <label class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-mint/10 hover:border-mint group bg-white shadow-sm transition">
+                            <input type="radio" name="sale-variant" value="${v.id}" class="peer sr-only" onchange="enableAddToOrderBtn()">
+                            <div class="flex items-center gap-3">
+                                <span class="w-4 h-4 rounded-full border-2 border-gray-200 peer-checked:bg-mint peer-checked:border-mint transition"></span>
+                                <div>
+                                    <div class="font-bold text-sm text-gray-800">${v.color}</div>
+                                    <div class="text-xs text-gray-500">Talle ${v.size} (${v.section || 'U'})</div>
+                                </div>
+                            </div>
+                            <span class="font-bold text-gray-400 peer-checked:text-mint">${v.stock} disp.</span>
+                        </label>
+                    `).join('')}
+                </div>
+                <div class="mt-8 flex flex-col items-center">
+                     <label class="text-xs font-bold uppercase text-gray-400 mb-2">Cantidad</label>
+                     <div class="flex items-center gap-6">
+                         <button onclick="adjSale(-1)" class="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-gray-400 text-gray-400 hover:text-gray-600 font-bold text-xl"><i class="fa-solid fa-minus"></i></button>
+                         <span id="sale-qty" class="text-4xl font-bold text-gray-800 w-16 text-center">1</span>
+                         <button onclick="adjSale(1)" class="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-gray-400 text-gray-400 hover:text-gray-600 font-bold text-xl"><i class="fa-solid fa-plus"></i></button>
+                     </div>
+                </div>
+                ` : `<div class="bg-red-50 text-red-500 font-bold p-6 rounded-xl text-center"><i class="fa-solid fa-ban text-2xl mb-2 block"></i>Sin stock disponible</div>`}
+            `;
+
+            drawerFooter.innerHTML = `<button id="btn-add-order" onclick="addToOrder()" disabled class="w-full bg-gray-300 text-gray-500 font-bold py-4 rounded-xl transition-all text-lg shadow-none">Agregar al Pedido <i class="fa-solid fa-cart-plus ml-2"></i></button>`;
+            openDrawerAnimation();
+        }
+
+        let saleQty = 1;
+        function adjSale(d) { saleQty = Math.max(1, saleQty + d); document.getElementById('sale-qty').innerText = saleQty; }
+
+        function enableAddToOrderBtn() {
+            const btn = document.getElementById('btn-add-order');
+            btn.disabled = false;
+            btn.classList.remove('bg-gray-300', 'text-gray-500', 'shadow-none');
+            btn.classList.add('bg-gray-900', 'text-white', 'shadow-lg');
+        }
+
+        // Logic to ADD item to partial cart
+        function addToOrder() {
+            const radios = document.getElementsByName('sale-variant');
+            let selectedId;
+            for (const r of radios) { if (r.checked) selectedId = r.value; }
+
+            const p = currentInventory.find(x => x.id === editingId);
+            const v = p.variants.find(x => x.id == selectedId);
+
+            // Check if we already have this item in cart
+            const currentInCart = currentOrder.find(item => item.variantId == selectedId);
+            const qtyInCart = currentInCart ? currentInCart.qty : 0;
+
+            if ((v.stock - qtyInCart) < saleQty) {
+                return alert(`¡STOCK INSUFICIENTE!\nStock Total: ${v.stock}\nYa en carrito: ${qtyInCart}\nIntentas agregar: ${saleQty}`);
+            }
+
+            if (currentInCart) {
+                currentInCart.qty += saleQty;
+            } else {
+                currentOrder.push({
+                    productId: p.id,
+                    variantId: v.id,
+                    name: p.name,
+                    price: p.price,
+                    color: v.color,
+                    size: v.size,
+                    section: v.section,
+                    qty: saleQty
+                });
+            }
+
+            updateMiniCart(); // Update Widget
+
+            // ASK USER WHAT TO DO NEXT
+            const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+
+            const msg = `
+                <div class="text-green-600 font-bold text-lg mb-2"><i class="fa-solid fa-check-circle"></i> Agregado al Pedido</div>
+                <div class="bg-gray-50 p-3 rounded mb-4 text-left text-sm text-gray-600">
+                    <div>Items: <strong>${currentOrder.length}</strong></div>
+                    <div>Total Parcial: <strong>$${total.toLocaleString()}</strong></div>
+                </div>
+                <div class="font-bold text-gray-800 mb-4">¿Necesitas agregar otro producto?</div>
+                <div class="flex flex-col gap-2">
+                    <button onclick="closeConfirm(false); closeDrawer();" class="w-full bg-white border-2 border-gray-900 text-gray-900 font-bold py-3 rounded-lg hover:bg-gray-100">
+                        SI, AGREGAR OTRO
+                    </button>
+                    <button onclick="showOrderSummary()" class="w-full bg-mustard text-white font-bold py-3 rounded-lg hover:bg-yellow-500 shadow-md">
+                        NO, FINALIZAR VENTA ($${total.toLocaleString()})
+                    </button>
+                </div>
+            `;
+
+            // Hack: We use the confirm modal but with custom buttons injected above
+            confirmMsg.innerHTML = msg;
+            confirmModal.classList.remove('hidden');
+            // Hide standard buttons for this specific prompt
+            confirmModal.querySelector('.flex.gap-3').classList.add('hidden');
+        }
+
+        function showOrderSummary() {
+            // Close Confirm (Ask) Modal
+            confirmModal.classList.add('hidden');
+            // Restore standard buttons for next time
+            setTimeout(() => confirmModal.querySelector('.flex.gap-3').classList.remove('hidden'), 500);
+
+            closeDrawer(); // Close product drawer
+
+            drawerTitle.innerText = 'Resumen de Venta';
+            const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+
+            drawerBody.innerHTML = `
+                <div class="space-y-4">
+                    ${currentOrder.map((item, idx) => `
+                        <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                            <div>
+                                <div class="font-bold text-gray-800">${item.name}</div>
+                                <div class="text-xs text-gray-500">${item.color} - Talle ${item.size}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-bold text-lg text-gray-800">x${item.qty}</div>
+                                <div class="font-mono text-gray-400 text-xs">$${(item.price * item.qty).toLocaleString()}</div>
+                                <button onclick="removeFromOrder(${idx})" class="text-red-400 text-xs underline mt-1">Quitar</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                    
+                    <div class="border-t pt-4 mt-6">
+                        <div class="flex justify-between items-center text-2xl font-bold text-gray-900">
+                            <span>Total a Cobrar:</span>
+                            <span>$${total.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            drawerFooter.innerHTML = `
+                 <button onclick="finalizeOrder()" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg text-xl hover:bg-green-600 transition">
+                    <i class="fa-solid fa-money-bill-wave mr-2"></i> Confirmar Venta
+                 </button>
+            `;
+            openDrawerAnimation();
+        }
+
+        function removeFromOrder(idx) {
+            currentOrder.splice(idx, 1);
+            updateMiniCart(); // Update Widget
+            if (currentOrder.length === 0) {
+                closeDrawer();
+                alert("Pedido cancelado (vacío).");
+            } else {
+                showOrderSummary();
+            }
+        }
+
+        function finalizeOrder() {
+            // Real Stock Deduction
+            currentOrder.forEach(item => {
+                const product = currentInventory.find(p => p.id === item.productId);
+                const variant = product.variants.find(v => v.id == item.variantId);
+                variant.stock -= item.qty;
+            });
+
+            // NEW: Save Sale History
+            const saleRecord = {
+                id: Date.now().toString(),
+                timestamp: Date.now(),
+                total: currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0),
+                items: currentOrder
             };
 
-            if (id) {
-                // Edit
-                const index = inventory.findIndex(p => p.id == id);
-                inventory[index] = newItem;
-            } else {
-                // Add
-                inventory.push(newItem);
+            const history = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
+            history.push(saleRecord);
+            localStorage.setItem('puroAmorSales', JSON.stringify(history));
+
+            autoSave();
+            currentOrder = []; // Reset
+            updateMiniCart(); // Update Widget (Hide)
+            closeDrawer();
+
+            // Success Msg
+            requestConfirm(`
+                <div class="text-green-500 text-5xl mb-4"><i class="fa-solid fa-check-circle"></i></div>
+                <div class="text-gray-800 font-bold text-xl">¡Venta Registrada!</div>
+                <div class="text-gray-500 text-sm mt-2">Guardada en historial.</div>
+            `, () => { closeConfirm(false); renderTable(); switchAppMode('registro'); });
+        }
+
+        // NEW: Mini Cart Logic
+        function updateMiniCart() {
+            const widget = document.getElementById('mini-cart-widget');
+            const list = document.getElementById('mini-cart-items');
+            const count = document.getElementById('mini-cart-count');
+            const totalEl = document.getElementById('mini-cart-total');
+
+            if (currentOrder.length === 0) {
+                widget.classList.remove('opacity-100', 'translate-y-0');
+                widget.classList.add('opacity-0', 'translate-y-10');
+                setTimeout(() => widget.classList.add('hidden'), 300);
+                return;
             }
 
-            resetForm();
-            render();
+            widget.classList.remove('hidden');
+            // Small delay to allow display:block to apply before transition
+            setTimeout(() => {
+                widget.classList.remove('opacity-0', 'translate-y-10');
+                widget.classList.add('opacity-100', 'translate-y-0');
+            }, 10);
+
+            const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+
+            list.innerHTML = currentOrder.map(item => `
+                <div class="flex justify-between">
+                    <span>${item.name} (${item.color}) x${item.qty}</span>
+                    <span class="font-mono font-bold">$${(item.price * item.qty).toLocaleString()}</span>
+                </div>
+            `).join('');
+
+            count.innerText = currentOrder.length;
+            totalEl.innerText = `$${total.toLocaleString()}`;
         }
 
-        function editItem(id) {
-            const p = inventory.find(i => i.id === id);
-            document.getElementById('form-title').innerText = 'Editar Producto';
-            document.getElementById('prod-id').value = p.id;
-            document.getElementById('prod-name').value = p.name;
-            document.getElementById('prod-price').value = p.price;
-            document.getElementById('prod-image').value = p.image;
-            document.getElementById('prod-category').value = p.category;
-            document.getElementById('prod-sizes').value = p.sizes.join(', ');
-            document.getElementById('prod-desc').value = p.description;
+        function openDrawerAnimation() { drawer.classList.remove('drawer-closed'); drawer.classList.add('drawer-open'); overlay.classList.remove('hidden'); }
+        function closeDrawer() { drawer.classList.add('drawer-closed'); drawer.classList.remove('drawer-open'); overlay.classList.add('hidden'); }
 
-            // Highlight form
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            document.getElementById('product-form').classList.add('ring-2', 'ring-mint');
-            setTimeout(() => document.getElementById('product-form').classList.remove('ring-2', 'ring-mint'), 1000);
-        }
-
-        function deleteItem(id) {
-            if (confirm('¿Seguro que quieres borrar este producto?')) {
-                inventory = inventory.filter(p => p.id !== id);
-                render();
-            }
-        }
-
-        function resetForm() {
-            form.reset();
-            document.getElementById('prod-id').value = '';
-            document.getElementById('form-title').innerText = 'Agregar Producto';
-        }
-
-        function generateCode() {
-            const code = `const products = ${JSON.stringify(inventory, null, 4)};`;
-            document.getElementById('code-output').value = code;
-            document.getElementById('code-modal').classList.remove('hidden');
-        }
-
-        function copyCode() {
-            const copyText = document.getElementById("code-output");
-            copyText.select();
-            document.execCommand("copy");
-            alert("¡Código copiado! Ahora pégalo en el archivo products.js");
-        }
-
-        // Init
-        const password = prompt("Para acceder al Panel de Admin, ingresa la contraseña:\n(Prueba con: puroamor)");
-        if (password !== "puroamor") {
-            alert("Contraseña incorrecta. Redirigiendo a la tienda...");
-            window.location.href = "index.html";
-        } else {
-            render();
-        }
     </script>
+
+    <!-- Mini Cart POS Widget -->
+    <div id="mini-cart-widget"
+        class="fixed bottom-6 right-6 bg-white border border-gray-200 shadow-2xl rounded-xl p-4 w-72 hidden z-50 transition-all duration-300 transform translate-y-10 opacity-0">
+        <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-2">
+            <h4 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-bag-shopping text-mint"></i> En Proceso
+            </h4>
+            <span id="mini-cart-count"
+                class="bg-gray-900 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">0</span>
+        </div>
+        <div id="mini-cart-items"
+            class="max-h-32 overflow-y-auto text-xs space-y-2 mb-3 text-gray-600 custom-scrollbar">
+            <!-- Items injected here -->
+        </div>
+        <div class="flex justify-between items-center font-bold text-gray-900 text-sm border-t border-gray-100 pt-2">
+            <span>Total:</span>
+            <span id="mini-cart-total">$0</span>
+        </div>
+        <button onclick="showOrderSummary()"
+            class="w-full mt-3 bg-gray-900 text-white text-xs font-bold py-2 rounded hover:bg-black transition text-center shadow-lg">
+            Ver / Cobrar
+        </button>
+    </div>
+
 </body>
 
 </html>

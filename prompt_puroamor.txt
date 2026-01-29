@@ -1,0 +1,48 @@
+***
+
+**PROJECT SYSTEM PROMPT: "Puro Amor Kids" E-Commerce**
+
+**1. Project Overview & Identity**
+*   **Brand Name:** "Puro Amor Kidss"
+*   **Concept:** Kids clothing store (Baby & Toddler focus).
+*   **Design Vibe:** Reference [Cheeky.com.ar]. Clean, white backgrounds, minimalist but playful headers.
+*   **Color Palette (Derived from Logo):**
+    *   **Primary:** Pastel Mint/Teal (`#9CD3D3`)
+    *   **Accent:** Mustard Yellow (`#F4C873`)
+    *   **Neutral:** Warm Gray (`#E0E0E0`) & Black Text.
+    *   **Background:** White (`#FFFFFF`).
+*   **Typography:**
+    *   Headings: Handwritten style (Google Font: 'Amatic SC' or 'Patrick Hand').
+    *   Body: Clean Sans-Serif (Google Font: 'Inter' or 'Quicksand').
+
+**2. Core Functionality (The "System")**
+*   **Catalog Mode:** Grid of product cards (Photo, Price, Name).
+*   **Link in Bio:** The site must be responsive (Mobile First) to serve as a main landing page for Instagram.
+*   **Shopping Cart:**
+    *   Users can add multiple items (with Size selection: S, M, L, etc.).
+    *   Floating "Cart" icon showing item count.
+    *   Cart Summary Modal/Page.
+*   **Checkout Logic (WhatsApp):**
+    *   NO Payment Gateway integration (Stripe/MP API).
+    *   **Process:** User clicks "Finalizar Pedido" -> System generates a WhatsApp message string.
+    *   **Message Format:** *"Hola Puro Amor! Quiero pedir: [Item 1, Talle S] + [Item 2, Talle M]. Total: $XXX. Pago con: [Efectivo/Transferencia/Débito]."*
+    *   **Redirect:** Opens `wa.me/NUMERO?text=MESSAGE`.
+
+**3. Product Management (The "Admin" Requirement)**
+*   **Architecture Constraint:** This is a Static Site (run on Netlify). It has no database server.
+*   **Solution for "Admin":**
+    *   Create a separate file named `products.js` (or `inventory.json`) that acts as the database.
+    *   **Admin Panel UI:** Build a hidden `/admin.html` page (protected by a simple localized password, e.g., prompt JS) where the owner can visually "Add/Edit" items.
+    *   **IMPORTANT:** Since there is no server, the Admin Panel should generate a **JSON OUTPUT** code that the owner sends to the developer (or pastes into the file). *Clarification: A true persistent Admin Panel requires a database like Firebase. If keeping it simple static, use the JSON-edit method.*
+
+**4. Visual Structure**
+*   **Header:** Centered Logo (Rainbow Circle), Nav Menu (Home, Ropa, Admin), Cart Icon.
+*   **Hero:** Slider or Banner with "New Collection".
+*   **Grid:** Product cards with "Add to Cart" button.
+*   **Product Modal/Page:** When clicking an image, show Zoom, Description, Size Selector (Chips).
+
+**5. Technical Stack**
+*   HTML5, TailwindCSS (for rapid styling), Vanilla JavaScript (for Cart & WhatsApp logic).
+*   Use `localStorage` to keep the cart active if the user refreshes the page.
+
+***

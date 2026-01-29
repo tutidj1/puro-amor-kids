@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puro Amor Kidss | Ropa de Diseño para Bebés</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'mint': '#9CD3D3',
+                        'mustard': '#F4C873',
+                        'warm-gray': '#E0E0E0',
+                    },
+                    fontFamily: {
+                        'heading': ['"Amatic SC"', 'cursive'],
+                        'body': ['"Quicksand"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Quicksand:wght@300;400;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+        }
+
+        h1,
+        h2,
+        h3,
+        .font-heading {
+            font-family: 'Amatic SC', cursive;
+        }
+
+        .cart-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <!-- Mobile Menu Button -->
+            <button class="md:hidden text-2xl text-gray-600"><i class="fa-solid fa-bars"></i></button>
+
+            <!-- Logo -->
+            <div class="flex items-center gap-2 mx-auto md:mx-0">
+                <div
+                    class="w-10 h-10 bg-mint rounded-full flex items-center justify-center text-white font-heading font-bold text-xl border-2 border-dashed border-mustard overflow-hidden">
+                    <img src="https://via.placeholder.com/50/9CD3D3/FFFFFF?text=PA" alt="Logo"
+                        class="object-cover w-full h-full opacity-80">
+                </div>
+                <span class="font-heading text-3xl font-bold tracking-wide text-gray-700">Puro Amor <span
+                        class="text-mint">Kidss</span></span>
+            </div>
+
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex gap-8 text-lg font-bold text-gray-500">
+                <a href="#" class="hover:text-mint transition-colors">Inicio</a>
+                <a href="#catalogo" class="hover:text-mint transition-colors">Ropa</a>
+                <a href="#contacto" class="hover:text-mint transition-colors">Contacto</a>
+                <!-- Hidden Admin Link -->
+                <!-- <a href="admin.html" class="text-xs text-gray-300 hover:text-gray-400 self-center">Admin</a> -->
+            </div>
+
+            <!-- Cart Icon -->
+            <div class="relative cursor-pointer group" onclick="toggleCart()">
+                <i
+                    class="fa-solid fa-cart-shopping text-2xl text-gray-600 group-hover:text-mustard transition-colors"></i>
+                <span id="cart-count"
+                    class="absolute -top-2 -right-2 bg-mustard text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center transform scale-0 transition-transform duration-300">0</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="relative bg-mint/10 h-[50vh] flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 z-0">
+            <!-- Abstract shapes or Hero Image -->
+            <div class="absolute -top-20 -left-20 w-64 h-64 bg-mint/30 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 right-0 w-80 h-80 bg-mustard/20 rounded-full blur-3xl"></div>
+        </div>
+
+        <div class="relative z-10 text-center px-4">
+            <span
+                class="inline-block px-4 py-1 mb-4 bg-white/80 backdrop-blur rounded-full text-mustard font-bold text-sm tracking-widest uppercase shadow-sm">Nueva
+                Colección 2026</span>
+            <h1 class="text-6xl md:text-8xl font-bold text-gray-800 mb-6 drop-shadow-sm">Pequeños Momentos</h1>
+            <p class="text-xl md:text-2xl text-gray-600 mb-8 max-w-xl mx-auto font-light">Ropa cómoda y con diseño para
+                acompañar sus primeras aventuras.</p>
+            <a href="#catalogo"
+                class="inline-block bg-mint text-white text-xl font-heading font-bold px-8 py-3 rounded-full shadow-md hover:bg-[#8BCBCB] hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                Ver Catálogo
+            </a>
+        </div>
+    </header>
+
+    <!-- Product Grid -->
+    <section id="catalogo" class="py-16 max-w-6xl mx-auto px-4">
+        <div class="text-center mb-12">
+            <h2 class="text-5xl font-bold text-gray-800 mb-2">Nuestro Catálogo</h2>
+            <div class="w-24 h-1 bg-mustard mx-auto rounded-full"></div>
+        </div>
+
+        <!-- Filters (Simple) -->
+        <div class="flex justify-center gap-4 mb-10 overflow-x-auto py-2">
+            <button class="px-6 py-2 rounded-full bg-gray-800 text-white font-bold shadow-md whitespace-nowrap"
+                onclick="filterProducts('all')">Todos</button>
+            <button
+                class="px-6 py-2 rounded-full bg-white text-gray-600 border border-gray-200 hover:border-mint hover:text-mint font-bold shadow-sm whitespace-nowrap transition-colors"
+                onclick="filterProducts('Bebés')">Bebés</button>
+            <button
+                class="px-6 py-2 rounded-full bg-white text-gray-600 border border-gray-200 hover:border-mint hover:text-mint font-bold shadow-sm whitespace-nowrap transition-colors"
+                onclick="filterProducts('Niñas')">Niñas</button>
+            <button
+                class="px-6 py-2 rounded-full bg-white text-gray-600 border border-gray-200 hover:border-mint hover:text-mint font-bold shadow-sm whitespace-nowrap transition-colors"
+                onclick="filterProducts('Niños')">Niños</button>
+        </div>
+
+        <!-- Grid Container -->
+        <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Products will be injected here by JS -->
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-12 mt-12">
+        <div class="max-w-6xl mx-auto px-4 text-center">
+            <h3 class="text-4xl font-bold mb-4">Puro Amor Kidss</h3>
+            <div class="flex justify-center gap-6 mb-8 text-2xl">
+                <a href="#" class="hover:text-mint transition-colors"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#" class="hover:text-mint transition-colors"><i class="fa-brands fa-facebook"></i></a>
+                <a href="#" class="hover:text-mint transition-colors"><i class="fa-brands fa-whatsapp"></i></a>
+            </div>
+            <p class="text-gray-400 text-sm">© 2026 Puro Amor. Hecho con ❤️ para los más peques.</p>
+            <div class="mt-4">
+                <a href="admin.html" class="text-gray-600 text-xs hover:text-gray-400">Acceso Admin</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Cart Modal Overlay -->
+    <div id="cart-modal" class="fixed inset-0 bg-black/50 z-[60] hidden transition-opacity duration-300 opacity-0"
+        onclick="if(event.target === this) toggleCart()">
+        <div class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col"
+            id="cart-panel">
+
+            <!-- Cart Header -->
+            <div class="p-5 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="text-3xl font-bold text-gray-800">Tu Pedido</h3>
+                <button onclick="toggleCart()" class="text-gray-400 hover:text-red-500 text-2xl">&times;</button>
+            </div>
+
+            <!-- Cart Items -->
+            <div id="cart-items" class="flex-1 overflow-y-auto p-5 space-y-4">
+                <!-- Cart items injected here -->
+                <div class="text-center text-gray-400 mt-10">
+                    <i class="fa-solid fa-basket-shopping text-4xl mb-2"></i>
+                    <p>Tu carrito está vacío</p>
+                </div>
+            </div>
+
+            <!-- Cart Footer -->
+            <div class="p-6 border-t bg-gray-50">
+                <div class="flex justify-between items-center mb-4 text-xl font-bold text-gray-800">
+                    <span>Total:</span>
+                    <span id="cart-total">$0</span>
+                </div>
+                <!-- Payment Methods Note -->
+                <div class="text-xs text-gray-500 text-center mb-4">
+                    Aceptamos: Efectivo, Transferencia, Débito y Mercado Pago.
+                    <br>Coordinamos el pago por WhatsApp.
+                </div>
+                <button onclick="checkout()"
+                    class="w-full bg-green-500 text-white font-heading font-bold text-2xl py-3 rounded-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-whatsapp"></i> Finalizar Pedido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Details Modal -->
+    <div id="product-modal"
+        class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl transform scale-95 transition-transform duration-300"
+            id="product-modal-content">
+            <div class="grid md:grid-cols-2">
+                <!-- Image -->
+                <div class="h-64 md:h-full bg-gray-100 relative">
+                    <img id="modal-img" src="" class="w-full h-full object-cover">
+                    <button onclick="closeProductModal()"
+                        class="md:hidden absolute top-4 right-4 bg-white/80 rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm">&times;</button>
+                </div>
+                <!-- Details -->
+                <div class="p-8 flex flex-col">
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 id="modal-title" class="text-3xl font-bold text-gray-800 leading-tight">Product Name</h3>
+                        <button onclick="closeProductModal()"
+                            class="hidden md:block text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    <p id="modal-price" class="text-2xl font-bold text-mint mb-4">$0</p>
+                    <p id="modal-desc" class="text-gray-600 mb-6 leading-relaxed">Description goes here.</p>
+
+                    <!-- Size Selector -->
+                    <div class="mb-8">
+                        <label class="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">Elegir
+                            Talle:</label>
+                        <div id="modal-sizes" class="flex flex-wrap gap-2">
+                            <!-- Size chips injected here -->
+                        </div>
+                    </div>
+
+                    <div class="mt-auto">
+                        <button id="add-to-cart-btn"
+                            class="w-full bg-gray-800 text-white text-xl font-heading font-bold py-3 rounded-xl hover:bg-mustard hover:text-gray-900 transition-colors shadow-lg">
+                            Agregar al Carrito
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Data -->
+    <script src="products.js"></script>
+
+    <!-- App Logic -->
+    <script>
+        // State
+        let cart = JSON.parse(localStorage.getItem('puroamor_cart')) || [];
+        let currentProduct = null;
+        let selectedSize = null;
+
+        // DOM Elements
+        const grid = document.getElementById('product-grid');
+        const cartCount = document.getElementById('cart-count');
+        const cartModal = document.getElementById('cart-modal');
+        const cartPanel = document.getElementById('cart-panel');
+        const cartItemsContainer = document.getElementById('cart-items');
+        const cartTotal = document.getElementById('cart-total');
+
+        // Modal Elements
+        const productModal = document.getElementById('product-modal');
+        const productModalContent = document.getElementById('product-modal-content');
+        const modalImg = document.getElementById('modal-img');
+        const modalTitle = document.getElementById('modal-title');
+        const modalPrice = document.getElementById('modal-price');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalSizes = document.getElementById('modal-sizes');
+        const addToCartBtn = document.getElementById('add-to-cart-btn');
+
+        // Init
+        function init() {
+            renderProducts(products);
+            updateCartUI();
+        }
+
+        // Render Grid
+        function renderProducts(items) {
+            grid.innerHTML = items.map(product => `
+                <div class="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
+                    <div class="relative h-64 overflow-hidden cursor-pointer" onclick="openProductModal(${product.id})">
+                        <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                        <div class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold shadow-sm">
+                            $${product.price.toLocaleString()}
+                        </div>
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                    </div>
+                    <div class="p-5 text-center">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-1 leading-none">${product.name}</h3>
+                        <p class="text-sm text-gray-500 mb-4">${product.category} • ${product.sizes.length} Talles</p>
+                        <button onclick="openProductModal(${product.id})" class="w-full py-2 rounded-lg border-2 border-mint text-mint font-bold hover:bg-mint hover:text-white transition-colors">
+                            Ver Detalles
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Filter
+        function filterProducts(category) {
+            if (category === 'all') {
+                renderProducts(products);
+            } else {
+                const filtered = products.filter(p => p.category === category);
+                renderProducts(filtered);
+            }
+        }
+
+        // Product Modal Logic
+        function openProductModal(id) {
+            currentProduct = products.find(p => p.id === id);
+            selectedSize = null; // Reset size
+
+            modalImg.src = currentProduct.image;
+            modalTitle.innerText = currentProduct.name;
+            modalPrice.innerText = `$${currentProduct.price.toLocaleString()}`;
+            modalDesc.innerText = currentProduct.description;
+
+            // Render sizes
+            modalSizes.innerHTML = currentProduct.sizes.map(size => `
+                <button onclick="selectSize('${size}', this)" class="size-btn px-4 py-2 border-2 border-gray-200 rounded-lg text-gray-600 font-bold hover:border-mint transition-colors focus:outline-none">
+                    ${size}
+                </button>
+            `).join('');
+
+            // Show modal
+            productModal.classList.remove('hidden');
+            setTimeout(() => {
+                productModal.classList.remove('opacity-0');
+                productModalContent.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function selectSize(size, btn) {
+            selectedSize = size;
+            // Visual feedback
+            document.querySelectorAll('.size-btn').forEach(b => {
+                b.classList.remove('bg-mint', 'text-white', 'border-mint');
+                b.classList.add('border-gray-200', 'text-gray-600');
+            });
+            btn.classList.remove('border-gray-200', 'text-gray-600');
+            btn.classList.add('bg-mint', 'text-white', 'border-mint');
+        }
+
+        function closeProductModal() {
+            productModalContent.classList.add('scale-95');
+            productModal.classList.add('opacity-0');
+            setTimeout(() => {
+                productModal.classList.add('hidden');
+            }, 300);
+        }
+
+        addToCartBtn.onclick = () => {
+            if (!selectedSize) {
+                alert('Por favor selecciona un talle');
+                return;
+            }
+            addToCart(currentProduct, selectedSize);
+            closeProductModal();
+            toggleCart(); // Open cart to show success
+        };
+
+        // Cart Logic
+        function addToCart(product, size) {
+            const existingItem = cart.find(item => item.id === product.id && item.size === size);
+
+            if (existingItem) {
+                existingItem.quantity++;
+            } else {
+                cart.push({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    image: product.image,
+                    size: size,
+                    quantity: 1
+                });
+            }
+            saveCart();
+            updateCartUI();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            saveCart();
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            // Update Badge
+            const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+            cartCount.innerText = totalItems;
+            if (totalItems > 0) {
+                cartCount.classList.remove('scale-0');
+            } else {
+                cartCount.classList.add('scale-0');
+            }
+
+            // Update List
+            if (cart.length === 0) {
+                cartItemsContainer.innerHTML = `
+                    <div class="text-center text-gray-400 mt-10">
+                        <i class="fa-solid fa-basket-shopping text-4xl mb-4 opacity-30"></i>
+                        <p>Tu carrito está vacío</p>
+                        <button onclick="toggleCart()" class="mt-4 text-mint font-bold underline">Ir a ver ropa</button>
+                    </div>
+                `;
+            } else {
+                cartItemsContainer.innerHTML = cart.map((item, index) => `
+                    <div class="flex gap-4 items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                        <img src="${item.image}" class="w-16 h-16 rounded-lg object-cover">
+                        <div class="flex-1">
+                            <h4 class="font-bold text-gray-800 text-sm">${item.name}</h4>
+                            <p class="text-xs text-gray-500">Talle: ${item.size} | x${item.quantity}</p>
+                            <p class="font-bold text-mint">$${(item.price * item.quantity).toLocaleString()}</p>
+                        </div>
+                        <button onclick="removeFromCart(${index})" class="text-gray-300 hover:text-red-500 p-2">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            // Update Total
+            const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            cartTotal.innerText = `$${total.toLocaleString()}`;
+        }
+
+        function toggleCart() {
+            if (cartModal.classList.contains('hidden')) {
+                cartModal.classList.remove('hidden');
+                setTimeout(() => {
+                    cartModal.classList.remove('opacity-0');
+                    cartPanel.classList.remove('translate-x-full');
+                }, 10);
+            } else {
+                cartPanel.classList.add('translate-x-full');
+                cartModal.classList.add('opacity-0');
+                setTimeout(() => {
+                    cartModal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function saveCart() {
+            localStorage.setItem('puroamor_cart', JSON.stringify(cart));
+        }
+
+        // WhatsApp Checkout
+        function checkout() {
+            if (cart.length === 0) return;
+
+            const phoneNumber = "5493424687719"; // Replace with real number
+            let message = "Hola *Puro Amor*! 💕 Quiero realizar el siguiente pedido:\n\n";
+
+            cart.forEach(item => {
+                message += `• ${item.name} (Talle: ${item.size}) x${item.quantity}\n`;
+            });
+
+            const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            message += `\n*Total estimado: $${total.toLocaleString()}*`;
+            message += `\n\nQuedo a la espera para coordinar el pago (Efectivo/Transferencia). Gracias!`;
+
+            const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+            window.open(url, '_blank');
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Puro Amor Kidss</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 'mint': '#9CD3D3', 'mustard': '#F4C873' },
+                    fontFamily: { 'heading': ['"Amatic SC"', 'cursive'] }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&family=Quicksand:wght@400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="font-heading text-5xl font-bold text-gray-800">Panel de Administración</h1>
+            <a href="index.html" class="text-mint font-bold hover:underline"><i class="fa-solid fa-arrow-left"></i>
+                Volver a la Tienda</a>
+        </div>
+
+        <!-- Warning Config -->
+        <div class="bg-yellow-50 border-l-4 border-mustard p-4 mb-8 rounded shadow-sm">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fa-solid fa-triangle-exclamation text-mustard"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-800 font-bold">IMPORTANTE: Sistema sin Base de Datos</p>
+                    <p class="text-sm text-yellow-700 mt-1">
+                        1. Haz tus cambios aquí (agregar/borrar/editar).<br>
+                        2. Cuando termines, haz clic en el botón verde <strong>"Generar Código de
+                            Inventario"</strong>.<br>
+                        3. Copia ese código y pégalo en el archivo <code>products.js</code> de tu carpeta.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Form Section -->
+            <div class="lg:col-span-1">
+                <div class="bg-white p-6 rounded-2xl shadow-lg sticky top-8">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800" id="form-title">Agregar Producto</h2>
+                    <form id="product-form" onsubmit="handleForm(event)">
+                        <input type="hidden" id="prod-id">
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Nombre</label>
+                                <input type="text" id="prod-name" required
+                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
+                                    placeholder="Ej: Body Rayado">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Precio ($)</label>
+                                <input type="number" id="prod-price" required
+                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
+                                    placeholder="15000">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">URL Imagen</label>
+                                <input type="url" id="prod-image" required
+                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
+                                    placeholder="https://...">
+                                <p class="text-xs text-gray-400 mt-1">Usa links de imágenes (click derecho > copiar
+                                    dirección de imagen).</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Categoría</label>
+                                <select id="prod-category" class="w-full border-gray-300 rounded-lg p-2 border">
+                                    <option value="Bebés">Bebés</option>
+                                    <option value="Niñas">Niñas</option>
+                                    <option value="Niños">Niños</option>
+                                    <option value="Kits">Kits</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Talles (Separados
+                                    por coma)</label>
+                                <input type="text" id="prod-sizes" required
+                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
+                                    placeholder="0-3m, 3-6m, 6-9m">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Descripción</label>
+                                <textarea id="prod-desc" rows="3"
+                                    class="w-full border-gray-300 rounded-lg p-2 border focus:ring-mint focus:border-mint"
+                                    placeholder="Detalles de la prenda..."></textarea>
+                            </div>
+
+                            <div class="pt-4 flex gap-2">
+                                <button type="submit"
+                                    class="flex-1 bg-gray-800 text-white font-bold py-2 rounded-lg hover:bg-black transition-colors">Guardar</button>
+                                <button type="button" onclick="resetForm()"
+                                    class="px-4 py-2 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50">Cancelar</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- List Section -->
+            <div class="lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Inventario Actual (<span id="count">0</span>)</h2>
+                    <button onclick="generateCode()"
+                        class="bg-green-500 text-white px-6 py-2 rounded-full font-bold shadow hover:bg-green-600 transition-colors flex items-center gap-2">
+                        <i class="fa-solid fa-code"></i> Generar Código de Inventario
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Img</th>
+                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Producto</th>
+                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Precio</th>
+                                <th class="p-4 text-xs font-bold text-gray-500 uppercase">Cat</th>
+                                <th class="p-4 text-xs font-bold text-gray-500 uppercase text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-list" class="divide-y divide-gray-100">
+                            <!-- Items injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Modal -->
+    <div id="code-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl w-full max-w-3xl p-6 relative">
+            <button onclick="document.getElementById('code-modal').classList.add('hidden')"
+                class="absolute top-4 right-4 text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
+            <h3 class="text-2xl font-bold mb-2">¡Inventario Listo!</h3>
+            <p class="text-sm text-gray-500 mb-4">Copia todo este código y reemplaza el contenido del archivo
+                <code>products.js</code>.</p>
+            <textarea id="code-output"
+                class="w-full h-64 bg-gray-900 text-green-400 font-mono text-xs p-4 rounded-lg mb-4"
+                readonly></textarea>
+            <button onclick="copyCode()"
+                class="w-full bg-mint text-white font-bold py-3 rounded-lg hover:bg-[#8BCBCB]">Copiar al
+                Portapapeles</button>
+        </div>
+    </div>
+
+    <!-- Load Data -->
+    <script src="products.js"></script>
+    <script>
+        // Init with data from products.js
+        let inventory = [...products];
+
+        const form = document.getElementById('product-form');
+        const list = document.getElementById('inventory-list');
+        const count = document.getElementById('count');
+
+        function render() {
+            count.innerText = inventory.length;
+            list.innerHTML = inventory.map((p, index) => `
+                <tr class="hover:bg-gray-50 transition-colors group">
+                    <td class="p-4 w-16">
+                        <img src="${p.image}" class="w-10 h-10 rounded object-cover bg-gray-100">
+                    </td>
+                    <td class="p-4">
+                        <div class="font-bold text-gray-800">${p.name}</div>
+                        <div class="text-xs text-gray-400 truncate max-w-[200px]">${p.description}</div>
+                    </td>
+                    <td class="p-4 font-mono text-sm">$${p.price.toLocaleString()}</td>
+                    <td class="p-4">
+                        <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">${p.category}</span>
+                    </td>
+                    <td class="p-4 text-right">
+                        <button onclick="editItem(${p.id})" class="text-blue-400 hover:text-blue-600 mr-2"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteItem(${p.id})" class="text-red-300 hover:text-red-500"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function handleForm(e) {
+            e.preventDefault();
+            const id = document.getElementById('prod-id').value;
+
+            const newItem = {
+                id: id ? parseInt(id) : Date.now(), // Generate unique ID if new
+                name: document.getElementById('prod-name').value,
+                price: parseInt(document.getElementById('prod-price').value),
+                image: document.getElementById('prod-image').value,
+                category: document.getElementById('prod-category').value,
+                sizes: document.getElementById('prod-sizes').value.split(',').map(s => s.trim()),
+                description: document.getElementById('prod-desc').value
+            };
+
+            if (id) {
+                // Edit
+                const index = inventory.findIndex(p => p.id == id);
+                inventory[index] = newItem;
+            } else {
+                // Add
+                inventory.push(newItem);
+            }
+
+            resetForm();
+            render();
+        }
+
+        function editItem(id) {
+            const p = inventory.find(i => i.id === id);
+            document.getElementById('form-title').innerText = 'Editar Producto';
+            document.getElementById('prod-id').value = p.id;
+            document.getElementById('prod-name').value = p.name;
+            document.getElementById('prod-price').value = p.price;
+            document.getElementById('prod-image').value = p.image;
+            document.getElementById('prod-category').value = p.category;
+            document.getElementById('prod-sizes').value = p.sizes.join(', ');
+            document.getElementById('prod-desc').value = p.description;
+
+            // Highlight form
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            document.getElementById('product-form').classList.add('ring-2', 'ring-mint');
+            setTimeout(() => document.getElementById('product-form').classList.remove('ring-2', 'ring-mint'), 1000);
+        }
+
+        function deleteItem(id) {
+            if (confirm('¿Seguro que quieres borrar este producto?')) {
+                inventory = inventory.filter(p => p.id !== id);
+                render();
+            }
+        }
+
+        function resetForm() {
+            form.reset();
+            document.getElementById('prod-id').value = '';
+            document.getElementById('form-title').innerText = 'Agregar Producto';
+        }
+
+        function generateCode() {
+            const code = `const products = ${JSON.stringify(inventory, null, 4)};`;
+            document.getElementById('code-output').value = code;
+            document.getElementById('code-modal').classList.remove('hidden');
+        }
+
+        function copyCode() {
+            const copyText = document.getElementById("code-output");
+            copyText.select();
+            document.execCommand("copy");
+            alert("¡Código copiado! Ahora pégalo en el archivo products.js");
+        }
+
+        // Init
+        const password = prompt("Para acceder al Panel de Admin, ingresa la contraseña:\n(Prueba con: puroamor)");
+        if (password !== "puroamor") {
+            alert("Contraseña incorrecta. Redirigiendo a la tienda...");
+            window.location.href = "index.html";
+        } else {
+            render();
+        }
+    </script>
+</body>
+
+</html>

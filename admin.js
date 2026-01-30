@@ -1,6 +1,7 @@
 // Importar Firestore y Config
-import { db } from './firebase-config.js';
+import { db, storage } from './firebase-config.js';
 import { collection, doc, setDoc, deleteDoc, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 // State
 let appMode = 'stock';
@@ -311,7 +312,14 @@ function openStockDrawer(id) {
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Imagen (URL)</label>
-                        <input type="text" id="edit-image" value="${image}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:border-mint focus:outline-none text-xs" placeholder="https://...">
+                        <div class="flex gap-2">
+                             <input type="text" id="edit-image" value="${image}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:border-mint focus:outline-none text-xs" placeholder="https://...">
+                             <label class="cursor-pointer bg-gray-900 text-white w-12 flex items-center justify-center rounded-lg hover:bg-black transition shadow-sm" title="Subir Imagen">
+                                <input type="file" class="hidden" onchange="uploadImage(this)">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                             </label>
+                        </div>
+                        <div id="upload-status" class="text-[10px] font-bold text-mint mt-1 hidden">Subiendo...</div>
                     </div>
                 </div>
             </div>
@@ -474,13 +482,8 @@ function preSaveCheck() {
         try {
             await setDoc(doc(db, "productos", docId), newProduct);
 
-            // Local update for immediate UI feedback
-            if (editingId) {
-                const idx = currentInventory.findIndex(p => p.id === editingId);
-                if (idx !== -1) currentInventory[idx] = newProduct;
-            } else {
-                currentInventory.push(newProduct);
-            }
+            // Local update removed: Handled by onSnapshot
+
 
             statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Guardado Nube';
             closeDrawer();
@@ -499,7 +502,8 @@ function preDeleteCheck() {
         statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-red-400"></span> Eliminando...';
         try {
             await deleteDoc(doc(db, "productos", String(editingId)));
-            currentInventory = currentInventory.filter(p => p.id !== editingId);
+            // Local update removed: Handled by onSnapshot
+
 
             statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Eliminado';
             closeDrawer();
@@ -798,3 +802,35 @@ expose('openDrawerAnimation', openDrawerAnimation);
 
 function closeDrawer() { drawer.classList.add('drawer-closed'); drawer.classList.remove('drawer-open'); overlay.classList.add('hidden'); }
 expose('closeDrawer', closeDrawer);
+
+// --- IMAGE UPLOAD ---
+async function uploadImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const status = document.getElementById('upload-status');
+    status.innerText = "Subiendo imagen...";
+    status.classList.remove('hidden', 'text-green-500', 'text-red-500');
+    status.classList.add('text-mint', 'animate-pulse');
+
+    try {
+        const path = `productos/${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, path);
+
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+
+        document.getElementById('edit-image').value = url;
+
+        status.innerText = "¡Imagen cargada!";
+        status.classList.remove('text-mint', 'animate-pulse');
+        status.classList.add('text-green-500');
+    } catch (error) {
+        console.error("Upload failed", error);
+        status.innerText = "Error al subir";
+        status.classList.remove('text-mint', 'animate-pulse');
+        status.classList.add('text-red-500');
+        alert("Error al subir la imagen a Firebase Storage");
+    }
+}
+expose('uploadImage', uploadImage);

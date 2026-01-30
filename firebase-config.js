@@ -4,6 +4,8 @@ import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyBdqfaSrmKKlfLOY0wdoof4bETPK_qP7dY",
   authDomain: "puroamorkids.firebaseapp.com",
@@ -19,5 +21,6 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const analytics = getAnalytics(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 
-export { app, db, analytics, auth };
+export { app, db, analytics, auth, storage };

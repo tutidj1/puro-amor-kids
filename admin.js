@@ -1,6 +1,6 @@
 // Importar Firestore y Config
 import { db, storage } from './firebase-config.js';
-import { collection, doc, setDoc, deleteDoc, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, doc, setDoc, deleteDoc, writeBatch, onSnapshot, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 // State
@@ -13,6 +13,7 @@ let tempVariants = [];
 let pendingAction = null;
 let currentOrder = [];
 let analyticsMode = 'day';
+let allSales = []; // Stores sales from Firestore
 
 // DOM Elements
 const drawer = document.getElementById('drawer');
@@ -54,6 +55,17 @@ function loadData() {
     }, (error) => {
         console.error("Error getting documents: ", error);
         statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Error Excéntrico';
+    });
+
+    // Listen for SALES updates (Real-time History)
+    // We order by timestamp desc to have latest first
+    const salesQuery = query(collection(db, "ventas"), orderBy("timestamp", "desc"), limit(200));
+    onSnapshot(salesQuery, (snapshot) => {
+        allSales = [];
+        snapshot.forEach((doc) => {
+            allSales.push({ id: doc.id, ...doc.data() });
+        });
+        renderAnalytics();
     });
 }
 expose('loadData', loadData);
@@ -172,15 +184,17 @@ function renderAnalytics() {
     }
 
     const historyBody = document.getElementById('sales-history-body');
-    const localSales = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
-    localSales.sort((a, b) => b.timestamp - a.timestamp);
+    // const localSales = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
+    // localSales.sort((a, b) => b.timestamp - a.timestamp);
+    // Use Firestore data
+    const salesData = allSales;
 
     let filteredSales = [];
     const label = document.getElementById('showing-label');
 
     if (analyticsMode === 'day') {
         const selectedDateStr = dateInput.value;
-        filteredSales = localSales.filter(s => {
+        filteredSales = salesData.filter(s => {
             const d = new Date(s.timestamp);
             const year = d.getFullYear();
             const month = (d.getMonth() + 1).toString().padStart(2, '0');
@@ -190,7 +204,7 @@ function renderAnalytics() {
         label.innerText = `Mostrando: ${selectedDateStr}`;
     } else {
         const selectedMonthStr = monthInput.value;
-        filteredSales = localSales.filter(s => {
+        filteredSales = salesData.filter(s => {
             const d = new Date(s.timestamp);
             const year = d.getFullYear();
             const month = (d.getMonth() + 1).toString().padStart(2, '0');
@@ -612,26 +626,50 @@ function addToOrder() {
     updateMiniCart();
 
     const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+
+    // Ticket Style Design
     const msg = `
-        <div class="text-green-600 font-bold text-lg mb-2"><i class="fa-solid fa-check-circle"></i> Agregado al Pedido</div>
-        <div class="bg-gray-50 p-3 rounded mb-4 text-left text-sm text-gray-600">
-            <div>Items: <strong>${currentOrder.length}</strong></div>
-            <div>Total Parcial: <strong>$${total.toLocaleString()}</strong></div>
-        </div>
-        <div class="font-bold text-gray-800 mb-4">¿Necesitas agregar otro producto?</div>
-        <div class="flex flex-col gap-2">
-            <button onclick="closeConfirm(false); closeDrawer();" class="w-full bg-white border-2 border-gray-900 text-gray-900 font-bold py-3 rounded-lg hover:bg-gray-100">
-                SI, AGREGAR OTRO
-            </button>
-            <button onclick="showOrderSummary()" class="w-full bg-mustard text-white font-bold py-3 rounded-lg hover:bg-yellow-500 shadow-md">
-                NO, FINALIZAR VENTA ($${total.toLocaleString()})
-            </button>
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 max-w-sm mx-auto relative overflow-hidden">
+            <!-- Ticket Header -->
+            <div class="text-center border-b-2 border-dashed border-gray-200 pb-4 mb-4">
+                <div class="text-2xl text-gray-800 font-heading font-bold mb-1">Puro Amor Kids</div>
+                <div class="text-green-500 font-bold text-sm uppercase"><i class="fa-solid fa-check"></i> Agregado al Pedido</div>
+            </div>
+
+            <!-- Ticket Body -->
+            <div class="space-y-3 mb-6 font-mono text-sm text-gray-600">
+                <div class="flex justify-between">
+                    <span>Items en Orden:</span>
+                    <span class="font-bold text-gray-800">${currentOrder.length}</span>
+                </div>
+                 <div class="flex justify-between text-base border-t border-gray-100 pt-2 mt-2">
+                    <span class="font-bold text-gray-800">TOTAL PARCIAL:</span>
+                    <span class="font-bold text-gray-900">$${total.toLocaleString()}</span>
+                </div>
+            </div>
+
+            <!-- Ticket Actions -->
+            <div class="space-y-3">
+                <button onclick="closeConfirm(false); closeDrawer();" class="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-200 transition text-sm uppercase tracking-wide">
+                    + Agregar Otro Producto
+                </button>
+                <button onclick="showOrderSummary()" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-black shadow-lg transition text-sm uppercase tracking-wide flex justify-center items-center gap-2">
+                    <span>Finalizar Venta</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+            
+            <!-- Decor -->
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-mint to-blue-400"></div>
+            <div class="absolute bottom-0 left-0 w-full h-1 bg-gray-200"></div>
         </div>
     `;
 
     confirmMsg.innerHTML = msg;
     confirmModal.classList.remove('hidden');
-    confirmModal.querySelector('.flex.gap-3').classList.add('hidden');
+    // Hide default buttons since we included custom ones
+    const defaultBtns = confirmModal.querySelector('.flex.gap-3');
+    if (defaultBtns) defaultBtns.classList.add('hidden');
 }
 expose('addToOrder', addToOrder);
 
@@ -669,7 +707,7 @@ function showOrderSummary() {
     `;
 
     drawerFooter.innerHTML = `
-            <button onclick="finalizeOrder()" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg text-xl hover:bg-green-600 transition">
+            <button onclick="askToFinalize()" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg text-xl hover:bg-green-600 transition">
             <i class="fa-solid fa-money-bill-wave mr-2"></i> Confirmar Venta
             </button>
     `;
@@ -690,7 +728,22 @@ function removeFromOrder(idx) {
 expose('removeFromOrder', removeFromOrder);
 
 // --- FINALIZE ORDER (UPDATE FIRESTORE STOCK) ---
-function finalizeOrder() {
+// --- FINALIZE ORDER (UPDATE FIRESTORE STOCK) ---
+function askToFinalize() {
+    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+    const defaultBtns = confirmModal.querySelector('.flex.gap-3');
+    if (defaultBtns) defaultBtns.classList.remove('hidden');
+
+    requestConfirm(`
+        <div class="text-gray-800 text-lg">¿Estás seguro de finalizar la venta por <strong>$${total.toLocaleString()}</strong>?</div>
+        <div class="text-xs text-gray-500 mt-2">Esta acción descontará el stock de la base de datos.</div>
+    `, () => {
+        executeSale();
+    });
+}
+expose('askToFinalize', askToFinalize);
+
+function executeSale() {
     statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-blue-500"></span> Procesando Venta...';
 
     // Preparar batch
@@ -732,16 +785,16 @@ function finalizeOrder() {
             if (idx !== -1) currentInventory[idx] = val.data;
         });
 
-        // Save Sales History (Virtual/Local for now)
+        // Save Sales History to FIRESTORE
         const saleRecord = {
-            id: Date.now().toString(),
             timestamp: Date.now(),
             total: currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0),
-            items: currentOrder
+            items: currentOrder,
+            dateString: new Date().toLocaleDateString()
         };
-        const history = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
-        history.push(saleRecord);
-        localStorage.setItem('puroAmorSales', JSON.stringify(history));
+
+        // Add to 'ventas' collection
+        addDoc(collection(db, "ventas"), saleRecord).catch(e => console.error("Error saving sale history:", e));
 
         currentOrder = [];
         updateMiniCart();
@@ -750,11 +803,19 @@ function finalizeOrder() {
 
         statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Venta Exitosa';
 
+        // Success Feedback (Reuse confirm modal but hide cancel buttons, or simple alert)
+        // Let's use custom HTML in confirm modal and HIDE default buttons
+        const defaultBtns = confirmModal.querySelector('.flex.gap-3');
+        if (defaultBtns) defaultBtns.classList.add('hidden');
+
         requestConfirm(`
             <div class="text-green-500 text-5xl mb-4"><i class="fa-solid fa-check-circle"></i></div>
             <div class="text-gray-800 font-bold text-xl">¡Venta Registrada!</div>
-            <div class="text-gray-500 text-sm mt-2">Stock descontado en la nube.</div>
-        `, () => { closeConfirm(false); renderTable(); switchAppMode('registro'); });
+            <div class="text-gray-500 text-sm mt-2 mb-4">Stock descontado en la nube.</div>
+            <button onclick="closeConfirm(false); renderTable(); switchAppMode('registro');" class="w-full bg-gray-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-black transition">
+                Aceptar
+            </button>
+        `, null); // No callback needed for the Confirm default button since we hid, we use custom button
 
     }).catch(err => {
         console.error("Error finalizing:", err);
@@ -762,13 +823,13 @@ function finalizeOrder() {
         alert("Hubo un error al actualizar el stock en la nube.");
     });
 }
-expose('finalizeOrder', finalizeOrder);
 
 function updateMiniCart() {
     const widget = document.getElementById('mini-cart-widget');
-    const list = document.getElementById('mini-cart-items');
     const count = document.getElementById('mini-cart-count');
     const totalEl = document.getElementById('mini-cart-total');
+
+    if (!widget || !count || !totalEl) return; // Safety check
 
     if (currentOrder.length === 0) {
         widget.classList.remove('opacity-100', 'translate-y-0');
@@ -784,14 +845,6 @@ function updateMiniCart() {
     }, 10);
 
     const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
-
-    list.innerHTML = currentOrder.map(item => `
-        <div class="flex justify-between">
-            <span>${item.name} (${item.color}) x${item.qty}</span>
-            <span class="font-mono font-bold">$${(item.price * item.qty).toLocaleString()}</span>
-        </div>
-    `).join('');
-
     count.innerText = currentOrder.length;
     totalEl.innerText = `$${total.toLocaleString()}`;
 }

@@ -252,6 +252,290 @@
         </div>
     </div>
 
+    <!-- Checkout Modal -->
+    <div id="checkout-modal"
+        class="fixed inset-0 z-[80] hidden p-4 flex items-center justify-center transition-all duration-300 backdrop-blur-sm bg-black/40 opacity-0"
+        onclick="if(event.target === this) closeCheckout()">
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform scale-95 transition-all duration-300 relative"
+            id="checkout-panel">
+
+            <!-- Header -->
+            <div class="bg-gray-900 p-6 flex justify-between items-center text-white">
+                <h3 class="font-heading text-3xl font-bold tracking-wide">Finalizar Compra</h3>
+                <button onclick="closeCheckout()"
+                    class="text-gray-400 hover:text-white transition-colors text-2xl">&times;</button>
+            </div>
+
+            <!-- Steps Progress -->
+            <div class="bg-gray-100 p-4 flex justify-between items-center px-10 relative">
+                <div class="absolute top-1/2 left-10 right-10 h-1 bg-gray-200 -z-0"></div>
+                <div class="relative z-10 flex flex-col items-center step-indicator active" data-step="1">
+                    <div
+                        class="w-8 h-8 rounded-full bg-gray-300 text-gray-500 font-bold flex items-center justify-center text-sm border-2 border-white shadow-sm transition-colors duration-300">
+                        1</div>
+                    <span class="text-[10px] font-bold text-gray-400 mt-1 uppercase">Datos</span>
+                </div>
+                <div class="relative z-10 flex flex-col items-center step-indicator" data-step="2">
+                    <div
+                        class="w-8 h-8 rounded-full bg-gray-300 text-gray-500 font-bold flex items-center justify-center text-sm border-2 border-white shadow-sm transition-colors duration-300">
+                        2</div>
+                    <span class="text-[10px] font-bold text-gray-400 mt-1 uppercase">Pago</span>
+                </div>
+                <div class="relative z-10 flex flex-col items-center step-indicator" data-step="3">
+                    <div
+                        class="w-8 h-8 rounded-full bg-gray-300 text-gray-500 font-bold flex items-center justify-center text-sm border-2 border-white shadow-sm transition-colors duration-300">
+                        3</div>
+                    <span class="text-[10px] font-bold text-gray-400 mt-1 uppercase">Fin</span>
+                </div>
+            </div>
+
+            <!-- Content Steps -->
+            <div class="p-8">
+                <form id="checkout-form" onsubmit="event.preventDefault()">
+
+                    <!-- STEP 1: SHIPPING INFO -->
+                    <div class="step-content active space-y-4" id="step-1">
+                        <div class="text-center mb-6">
+                            <h4 class="text-xl font-bold text-gray-800">Datos de Envío</h4>
+                            <p class="text-sm text-gray-500">¿A dónde enviamos tu pedido?</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre
+                                    Completo</label>
+                                <input type="text" required
+                                    class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
+                                    placeholder="Ej: Juan Pérez">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Teléfono /
+                                    WhatsApp</label>
+                                <input type="tel" required
+                                    class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
+                                    placeholder="Ej: 11 1234 5678">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Ciudad</label>
+                                    <input type="text" required
+                                        class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
+                                        placeholder="Ej: CABA">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">CP</label>
+                                    <input type="text" required
+                                        class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
+                                        placeholder="Ej: 1414">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dirección / Punto de
+                                    Retiro</label>
+                                <input type="text" required
+                                    class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
+                                    placeholder="Ej: Av. Santa Fe 1234">
+                            </div>
+                        </div>
+
+                        <div class="pt-4">
+                            <button type="button" onclick="nextStep(2)"
+                                class="w-full bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-black transition-transform active:scale-95 shadow-lg">Continuar
+                                al Pago <i class="fa-solid fa-arrow-right ml-2"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: PAYMENT METHOD -->
+                    <div class="step-content hidden space-y-4" id="step-2">
+                        <div class="text-center mb-6">
+                            <h4 class="text-xl font-bold text-gray-800">Método de Pago</h4>
+                            <p class="text-sm text-gray-500">Elige cómo quieres abonar.</p>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label
+                                class="flex items-center p-4 border-2 border-gray-100 rounded-xl cursor-pointer hover:border-mint transition-colors group relative overflow-hidden bg-white shadow-sm">
+                                <input type="radio" name="payment" value="card" class="peer sr-only" checked
+                                    onchange="togglePaymentDetails()">
+                                <div
+                                    class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4 text-blue-600 transition-colors peer-checked:bg-blue-600 peer-checked:text-white">
+                                    <i class="fa-regular fa-credit-card"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h5 class="font-bold text-gray-800">Tarjeta de Crédito / Débito</h5>
+                                    <p class="text-xs text-gray-500">Procesado de forma segura.</p>
+                                </div>
+                                <div
+                                    class="absolute inset-0 border-2 border-transparent peer-checked:border-mint rounded-xl transition-all">
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-center p-4 border-2 border-gray-100 rounded-xl cursor-pointer hover:border-mint transition-colors group relative overflow-hidden bg-white shadow-sm">
+                                <input type="radio" name="payment" value="mp" class="peer sr-only"
+                                    onchange="togglePaymentDetails()">
+                                <div
+                                    class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center mr-4 text-blue-400 transition-colors peer-checked:bg-blue-400 peer-checked:text-white">
+                                    <i class="fa-solid fa-handshake"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h5 class="font-bold text-gray-800">Mercado Pago</h5>
+                                    <p class="text-xs text-gray-500">Envío de dinero o QR.</p>
+                                </div>
+                                <div
+                                    class="absolute inset-0 border-2 border-transparent peer-checked:border-mint rounded-xl transition-all">
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-center p-4 border-2 border-gray-100 rounded-xl cursor-pointer hover:border-mint transition-colors group relative overflow-hidden bg-white shadow-sm">
+                                <input type="radio" name="payment" value="whatsapp" class="peer sr-only"
+                                    onchange="togglePaymentDetails()">
+                                <div
+                                    class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-4 text-green-600 transition-colors peer-checked:bg-green-600 peer-checked:text-white">
+                                    <i class="fa-brands fa-whatsapp"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h5 class="font-bold text-gray-800">Acordar por WhatsApp</h5>
+                                    <p class="text-xs text-gray-500">Armamos el pedido juntos.</p>
+                                </div>
+                                <div
+                                    class="absolute inset-0 border-2 border-transparent peer-checked:border-mint rounded-xl transition-all">
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Payment Details Form (Only for Card) -->
+                        <div id="card-details" class="pt-4 border-t border-gray-100 mt-4 animate-fade-in-down">
+                            <div class="bg-gray-50 p-4 rounded-xl space-y-3">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Número de
+                                        Tarjeta</label>
+                                    <div class="relative">
+                                        <input type="text"
+                                            class="w-full bg-white border border-gray-200 rounded-lg p-2 pl-10 font-mono text-sm"
+                                            placeholder="0000 0000 0000 0000">
+                                        <i class="fa-regular fa-credit-card absolute left-3 top-3 text-gray-400"></i>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label
+                                            class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Vencimiento</label>
+                                        <input type="text"
+                                            class="w-full bg-white border border-gray-200 rounded-lg p-2 font-mono text-sm text-center"
+                                            placeholder="MM/YY">
+                                    </div>
+                                    <div>
+                                        <label
+                                            class="block text-[10px] font-bold text-gray-400 uppercase mb-1">CVC</label>
+                                        <input type="text"
+                                            class="w-full bg-white border border-gray-200 rounded-lg p-2 font-mono text-sm text-center"
+                                            placeholder="123">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre en
+                                        Tarjeta</label>
+                                    <input type="text"
+                                        class="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-sm text-gray-800 uppercase"
+                                        placeholder="COMO FIGURA EN PLÁSTICO">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-4 flex gap-3">
+                            <button type="button" onclick="prevStep(1)"
+                                class="px-6 py-3 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition">Volver</button>
+                            <button type="button" onclick="nextStep(3)"
+                                class="flex-1 bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-black transition-transform active:scale-95 shadow-lg">Revisar
+                                Pedido <i class="fa-solid fa-arrow-right ml-2"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: CONFIRMATION -->
+                    <div class="step-content hidden space-y-4" id="step-3">
+                        <div class="text-center mb-6">
+                            <h4 class="text-xl font-bold text-gray-800">Confirmar Pedido</h4>
+                            <p class="text-sm text-gray-500">Revisa que todo esté correcto.</p>
+                        </div>
+
+                        <div class="bg-gray-50 p-4 rounded-xl space-y-2 text-sm border border-gray-100">
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Subtotal</span>
+                                <span class="font-bold text-gray-800" id="checkout-subtotal">$0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">Envío</span>
+                                <span class="font-bold text-green-600">Gratis</span>
+                            </div>
+                            <div
+                                class="border-t border-gray-200 pt-2 flex justify-between text-lg font-bold text-gray-900">
+                                <span>Total</span>
+                                <span id="checkout-total">$0</span>
+                            </div>
+                        </div>
+
+                        <div id="payment-summary-text" class="text-center text-xs text-gray-400 px-4">
+                            Pagando con <strong>Tarjeta</strong>. La transacción es segura y encriptada.
+                        </div>
+
+                        <div class="pt-4 flex gap-3">
+                            <button type="button" onclick="prevStep(2)"
+                                class="px-6 py-3 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition">Volver</button>
+                            <button type="button" onclick="processPayment()"
+                                class="flex-1 bg-mint text-white font-bold py-3 rounded-xl hover:bg-[#8BCBCB] transition-transform active:scale-95 shadow-lg relative overflow-hidden"
+                                id="pay-btn">
+                                <span class="relative z-10 flex items-center justify-center gap-2">Pagar Ahora <i
+                                        class="fa-solid fa-lock"></i></span>
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- Success/Error Overlay -->
+            <div id="checkout-status"
+                class="absolute inset-0 bg-white z-20 hidden flex-col items-center justify-center text-center p-8 transition-opacity duration-500 opacity-0">
+                <div id="status-icon" class="text-6xl mb-4 transition-transform duration-500 scale-0"></div>
+                <h3 id="status-title"
+                    class="text-2xl font-bold text-gray-800 mb-2 opacity-0 transition-opacity duration-500 delay-100">
+                </h3>
+                <p id="status-msg" class="text-gray-500 mb-6 opacity-0 transition-opacity duration-500 delay-200"></p>
+                <button onclick="closeCheckout()"
+                    class="bg-gray-900 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:translate-y-1 transition opacity-0 delay-300"
+                    id="status-btn">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Add to Cart Confirmation Modal -->
+    <div id="add-success-modal"
+        class="fixed inset-0 z-[60] hidden p-4 flex items-center justify-center transition-all duration-300 bg-black/40 backdrop-blur-sm opacity-0"
+        onclick="if(event.target === this) closeSuccessModal()">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center transform scale-95 transition-all duration-300"
+            id="add-success-panel">
+            <div
+                class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 text-green-500 text-3xl animate-bounce-short">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2 font-heading">¡Agregado!</h3>
+            <p class="text-gray-500 mb-6">El producto ya está en tu carrito. ¿Qué te gustaría hacer?</p>
+
+            <div class="flex flex-col gap-3">
+                <button onclick="closeSuccessModal()"
+                    class="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors">Seguir
+                    Mirando</button>
+                <button onclick="goToCart()"
+                    class="w-full bg-mint text-white font-bold py-3 rounded-xl hover:bg-[#8BCBCB] shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                    Ir al Carrito <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Inventory Data -->
     <script src="products.js"></script>
 

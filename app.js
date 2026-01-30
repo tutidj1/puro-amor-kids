@@ -8,30 +8,61 @@ let selectedVariant = null;
 let appProducts = [];
 
 // DOM Elements
-const grid = document.getElementById('product-grid');
-const cartCount = document.getElementById('cart-count');
-const cartModal = document.getElementById('cart-modal');
-const cartPanel = document.getElementById('cart-panel');
-const cartItemsContainer = document.getElementById('cart-items');
-const cartTotal = document.getElementById('cart-total');
-
-// Modal Elements
-const productModal = document.getElementById('product-modal');
-const productModalContent = document.getElementById('product-modal-content');
-const modalImg = document.getElementById('modal-img');
-const modalTitle = document.getElementById('modal-title');
-const modalPrice = document.getElementById('modal-price');
-const modalDesc = document.getElementById('modal-desc');
-const modalSizes = document.getElementById('modal-sizes');
-const addToCartBtn = document.getElementById('add-to-cart-btn');
+let grid, cartCount, cartModal, cartPanel, cartItemsContainer, cartTotal;
+let productModal, productModalContent, modalImg, modalTitle, modalPrice, modalDesc, modalSizes, addToCartBtn;
+// Checkout Elements
+let checkoutModal, checkoutPanel, checkoutForm;
+// Confirmation Elements
+let successModal, successPanel;
 
 // Helper to expose functions to window (since we are in a module)
 const expose = (name, fn) => window[name] = fn;
 
 // Init
+// Init
 document.addEventListener('DOMContentLoaded', () => {
+    setupDOM();
     loadProducts(); // Init listener
 });
+
+function setupDOM() {
+    grid = document.getElementById('product-grid');
+    cartCount = document.getElementById('cart-count');
+    cartModal = document.getElementById('cart-modal');
+    cartPanel = document.getElementById('cart-panel');
+    cartItemsContainer = document.getElementById('cart-items');
+    cartTotal = document.getElementById('cart-total');
+
+    productModal = document.getElementById('product-modal');
+    productModalContent = document.getElementById('product-modal-content');
+    modalImg = document.getElementById('modal-img');
+    modalTitle = document.getElementById('modal-title');
+    modalPrice = document.getElementById('modal-price');
+    modalDesc = document.getElementById('modal-desc');
+    modalSizes = document.getElementById('modal-sizes');
+    addToCartBtn = document.getElementById('add-to-cart-btn');
+
+    checkoutModal = document.getElementById('checkout-modal');
+    checkoutPanel = document.getElementById('checkout-panel');
+    checkoutForm = document.getElementById('checkout-form');
+
+    successModal = document.getElementById('add-success-modal');
+    successPanel = document.getElementById('add-success-panel');
+
+    // Re-attach listeners if needed, usually onclicks are in HTML
+    if (addToCartBtn) {
+        addToCartBtn.onclick = () => {
+            if (!selectedVariant) {
+                alert('Por favor selecciona una variante (Color y Talle)');
+                return;
+            }
+            addToCart(currentProduct, selectedVariant);
+            closeProductModal();
+            // toggleCart(); // OLD behavior
+            showSuccessModal(); // NEW behavior
+        };
+    }
+}
 
 function loadProducts() {
     // Real-time listener
@@ -201,17 +232,7 @@ function closeProductModal() {
 expose('closeProductModal', closeProductModal);
 
 // Add to Cart Button Logic
-if (addToCartBtn) {
-    addToCartBtn.onclick = () => {
-        if (!selectedVariant) {
-            alert('Por favor selecciona una variante (Color y Talle)');
-            return;
-        }
-        addToCart(currentProduct, selectedVariant);
-        closeProductModal();
-        toggleCart();
-    };
-}
+// Add to Cart Logic moved to setupDOM
 
 function addToCart(product, variant) {
     const cartItemId = `${product.id}-${variant.id}`;
@@ -299,15 +320,225 @@ function saveCart() {
 }
 
 function checkout() {
-    if (cart.length === 0) return;
-    const phoneNumber = "5491122334455";
-    let message = "Hola *Puro Amor*! 💕 Quiero realizar el siguiente pedido:\n\n";
-    cart.forEach(item => {
-        message += `• ${item.name} (${item.variantStr}) x${item.quantity}\n`;
-    });
-    const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    message += `\n*Total estimado: $${total.toLocaleString()}*`;
-    message += `\n\nQuedo a la espera para coordinar el pago. Gracias!`;
-    window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
+    // checkout(); // OLD Direct WhatsApp
+    openCheckout();
 }
 expose('checkout', checkout);
+
+// --- CHECKOUT MODAL LOGIC ---
+// Elements initialized in setupDOM
+let currentStep = 1;
+
+function openCheckout() {
+    if (!checkoutModal) setupDOM(); // Safety fallback
+    if (cart.length === 0) return alert("El carrito está vacío");
+
+    currentStep = 1;
+    updateCheckoutSteps();
+    updateCheckoutSummary();
+
+    checkoutModal.classList.remove('hidden');
+    setTimeout(() => {
+        checkoutModal.classList.remove('opacity-0');
+        checkoutPanel.classList.remove('scale-95');
+    }, 10);
+}
+expose('openCheckout', openCheckout);
+
+function closeCheckout() {
+    checkoutPanel.classList.add('scale-95');
+    checkoutModal.classList.add('opacity-0');
+    setTimeout(() => {
+        checkoutModal.classList.add('hidden');
+        resetCheckoutUI();
+    }, 300);
+}
+expose('closeCheckout', closeCheckout);
+
+function nextStep(step) {
+    // Validate Step 1
+    if (step === 2) {
+        const inputs = document.getElementById('step-1').querySelectorAll('input');
+        for (const input of inputs) {
+            if (!input.checkValidity()) {
+                input.reportValidity();
+                return;
+            }
+        }
+    }
+
+    currentStep = step;
+    updateCheckoutSteps();
+}
+expose('nextStep', nextStep);
+
+function prevStep(step) {
+    currentStep = step;
+    updateCheckoutSteps();
+}
+expose('prevStep', prevStep);
+
+function updateCheckoutSteps() {
+    // Hide all steps
+    document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+    // Show current
+    document.getElementById(`step-${currentStep}`).classList.remove('hidden');
+
+    // Update Progress Indicators
+    document.querySelectorAll('.step-indicator').forEach(el => {
+        const s = parseInt(el.dataset.step);
+        if (s <= currentStep) {
+            el.classList.add('active');
+            el.firstElementChild.classList.add('bg-gray-900', 'text-white', 'border-gray-900');
+            el.firstElementChild.classList.remove('bg-gray-300', 'text-gray-500', 'border-white');
+        } else {
+            el.classList.remove('active');
+            el.firstElementChild.classList.remove('bg-gray-900', 'text-white', 'border-gray-900');
+            el.firstElementChild.classList.add('bg-gray-300', 'text-gray-500', 'border-white');
+        }
+    });
+}
+
+function togglePaymentDetails() {
+    const method = document.querySelector('input[name="payment"]:checked').value;
+    const cardDetails = document.getElementById('card-details');
+    const summaryText = document.getElementById('payment-summary-text');
+    const payBtn = document.getElementById('pay-btn');
+
+    if (method === 'card') {
+        cardDetails.classList.remove('hidden');
+        summaryText.innerHTML = 'Pagando con <strong>Tarjeta</strong>. La transacción es segura y encriptada.';
+        payBtn.innerHTML = '<span class="relative z-10 flex items-center justify-center gap-2">Pagar Ahora <i class="fa-solid fa-lock"></i></span>';
+        payBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+        payBtn.classList.add('bg-mint', 'hover:bg-[#8BCBCB]');
+    } else if (method === 'mp') {
+        cardDetails.classList.add('hidden');
+        summaryText.innerHTML = 'Serás redirigido a <strong>Mercado Pago</strong> para completar el pago.';
+        payBtn.innerHTML = '<span class="relative z-10 flex items-center justify-center gap-2">Ir a Pagar <i class="fa-solid fa-arrow-up-right-from-square"></i></span>';
+        payBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+        payBtn.classList.add('bg-mint', 'hover:bg-[#8BCBCB]');
+    } else {
+        // WhatsApp
+        cardDetails.classList.add('hidden');
+        summaryText.innerHTML = 'Se abrirá <strong>WhatsApp</strong> para enviarnos tu pedido.';
+        payBtn.innerHTML = '<span class="relative z-10 flex items-center justify-center gap-2">Enviar Pedido <i class="fa-brands fa-whatsapp"></i></span>';
+        payBtn.classList.remove('bg-mint', 'hover:bg-[#8BCBCB]');
+        payBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+    }
+}
+expose('togglePaymentDetails', togglePaymentDetails);
+
+function updateCheckoutSummary() {
+    const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    document.getElementById('checkout-subtotal').innerText = `$${total.toLocaleString()}`;
+    document.getElementById('checkout-total').innerText = `$${total.toLocaleString()}`;
+}
+
+function processPayment() {
+    const payBtn = document.getElementById('pay-btn');
+    const method = document.querySelector('input[name="payment"]:checked').value;
+
+    // Loading State
+    payBtn.disabled = true;
+    const originalText = payBtn.innerHTML;
+    payBtn.innerHTML = '<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>';
+
+    setTimeout(() => {
+        if (method === 'whatsapp') {
+            // WhatsApp Flow
+            const phoneNumber = "5491122334455";
+            let message = "Hola *Puro Amor*! 💕 Quiero realizar el siguiente pedido:\n\n";
+            cart.forEach(item => {
+                message += `• ${item.name} (${item.variantStr}) x${item.quantity}\n`;
+            });
+            const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+            message += `\n*Total estimado: $${total.toLocaleString()}*`;
+
+            // Get user data
+            const inputs = document.getElementById('step-1').querySelectorAll('input');
+            const userData = Array.from(inputs).map(i => i.value).join(', ');
+            message += `\n\nDatos de Envío: ${userData}`;
+            message += `\n\nQuedo a la espera para coordinar. Gracias!`;
+
+            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
+            cart = [];
+            saveCart();
+            updateCartUI();
+            closeCheckout();
+            return;
+        }
+
+        // Random Success/Fail Simulation for Card/MP
+        const isSuccess = Math.random() > 0.3; // 70% success chance
+        showStatus(isSuccess);
+        payBtn.disabled = false;
+        payBtn.innerHTML = originalText;
+    }, 2000);
+}
+expose('processPayment', processPayment);
+
+function showStatus(success) {
+    const overlay = document.getElementById('checkout-status');
+    const icon = document.getElementById('status-icon');
+    const title = document.getElementById('status-title');
+    const msg = document.getElementById('status-msg');
+    const btn = document.getElementById('status-btn');
+
+    overlay.classList.remove('hidden');
+    setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+
+    if (success) {
+        icon.innerHTML = '<i class="fa-solid fa-circle-check text-green-500"></i>';
+        title.innerText = '¡Pago Exitoso!';
+        msg.innerText = 'Hemos recibido tu pedido correctamente. Te enviamos un email con los detalles.';
+        // Clear Cart
+        cart = [];
+        saveCart();
+        updateCartUI();
+    } else {
+        icon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-500"></i>';
+        title.innerText = 'Pago Rechazado';
+        msg.innerText = 'Hubo un problema con tu método de pago. Por favor intenta nuevamente o coin otro medio.';
+    }
+
+    // Animations
+    setTimeout(() => icon.classList.remove('scale-0'), 100);
+    setTimeout(() => title.classList.remove('opacity-0'), 300);
+    setTimeout(() => msg.classList.remove('opacity-0'), 500);
+    setTimeout(() => btn.classList.remove('opacity-0'), 700);
+}
+
+function resetCheckoutUI() {
+    document.getElementById('checkout-status').classList.add('hidden', 'opacity-0');
+    // Reset steps
+    currentStep = 1;
+    updateCheckoutSteps();
+    document.getElementById('checkout-form').reset();
+    document.querySelector('input[name="payment"][value="card"]').checked = true;
+    togglePaymentDetails();
+}
+
+// --- CONFIRMATION MODAL LOGIC ---
+function showSuccessModal() {
+    if (!successModal) setupDOM();
+    successModal.classList.remove('hidden');
+    setTimeout(() => {
+        successModal.classList.remove('opacity-0');
+        successPanel.classList.remove('scale-95');
+    }, 10);
+}
+
+function closeSuccessModal() {
+    successPanel.classList.add('scale-95');
+    successModal.classList.add('opacity-0');
+    setTimeout(() => {
+        successModal.classList.add('hidden');
+    }, 300);
+}
+expose('closeSuccessModal', closeSuccessModal);
+
+function goToCart() {
+    closeSuccessModal();
+    toggleCart();
+}
+expose('goToCart', goToCart);

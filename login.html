@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Puro Amor Kids</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 'mint': '#9CD3D3', 'mustard': '#F4C873' },
+                    fontFamily: { 'heading': ['"Amatic SC"', 'cursive'] }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@700&family=Quicksand:wght@400;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-image: url('https://images.unsplash.com/photo-1519689680058-324335c7edcb?q=80&w=2070&auto=format&fit=crop');
+            /* Imagen de fondo bonita */
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+
+<body class="h-screen w-full flex items-center justify-center bg-black/30 backdrop-blur-sm">
+
+    <div
+        class="bg-white/90 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-full max-w-sm border border-white/50 text-center relative overflow-hidden">
+
+        <!-- Decoration -->
+        <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-mint to-mustard"></div>
+
+        <h1 class="font-heading text-5xl font-bold text-gray-800 mb-2">Puro Amor</h1>
+        <p class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-8">Acceso Administrativo</p>
+
+        <form id="login-form" class="space-y-4 text-left">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1" for="email">EMAIL</label>
+                <div class="relative">
+                    <input type="email" id="email"
+                        class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-mint focus:border-mint block p-3 pl-10 outline-none font-bold placeholder-gray-300"
+                        placeholder="admin@puroamorkids.com" required>
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1 ml-1" for="password">CONTRASEÑA</label>
+                <div class="relative">
+                    <input type="password" id="password"
+                        class="w-full bg-gray-50 border border-gray-200 text-gray-800 text-sm rounded-lg focus:ring-mint focus:border-mint block p-3 pl-10 outline-none font-bold placeholder-gray-300"
+                        placeholder="••••••••" required>
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div id="error-msg"
+                class="hidden text-red-500 text-xs font-bold text-center bg-red-50 p-2 rounded border border-red-100">
+                Credenciales incorrectas
+            </div>
+
+            <button type="submit" id="btn-login"
+                class="w-full text-white bg-gray-900 hover:bg-black font-bold rounded-lg text-sm px-5 py-3 text-center shadow-lg transition-transform hover:scale-[1.02] flex items-center justify-center gap-2 mt-6">
+                Ingresar al Sistema <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </form>
+
+        <p class="mt-8 text-xs text-center text-gray-400">
+            &copy; 2026 Puro Amor Kids
+        </p>
+    </div>
+
+    <!-- Auth Logic -->
+    <script type="module">
+        import './auth.js';
+
+        const form = document.getElementById('login-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const errorMsg = document.getElementById('error-msg');
+        const btnLogin = document.getElementById('btn-login');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMsg.classList.add('hidden');
+
+            const originalBtnContent = btnLogin.innerHTML;
+            btnLogin.disabled = true;
+            btnLogin.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cargando...';
+
+            try {
+                await window.loginApp.login(emailInput.value, passwordInput.value);
+                // Redirect handled by auth.js listener
+            } catch (error) {
+                console.error(error);
+                let msg = "Error al iniciar sesión";
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    msg = "Email o contraseña incorrectos";
+                } else if (error.code === 'auth/too-many-requests') {
+                    msg = "Demasiados intentos. Intenta más tarde.";
+                }
+                errorMsg.innerText = msg;
+                errorMsg.classList.remove('hidden');
+
+                btnLogin.disabled = false;
+                btnLogin.innerHTML = originalBtnContent;
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -11,7 +11,6 @@ let searchQuery = '';
 let editingId = null;
 let tempVariants = [];
 let pendingAction = null;
-let currentOrder = [];
 let analyticsMode = 'day';
 let allSales = []; // Stores sales from Firestore
 
@@ -48,8 +47,6 @@ function loadData() {
         currentInventory.forEach(p => { if (!p.variants) p.variants = []; });
 
         renderTable();
-        // If drawer is open, we might want to refresh it too? 
-        // For now, naive table refresh is enough, drawer sync is more complex (would need to re-find product)
 
         statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> En Línea';
     }, (error) => {
@@ -101,16 +98,14 @@ function switchAppMode(mode) {
     closeDrawer();
 
     const btnStock = document.getElementById('btn-mode-stock');
-    const btnSales = document.getElementById('btn-mode-sales');
     const btnRegistro = document.getElementById('btn-mode-registro');
 
     const mainArea = document.getElementById('main-area');
     const registroView = document.getElementById('registro-view');
-
     const stockActions = document.getElementById('stock-actions');
 
     // Reset Buttons
-    [btnStock, btnSales, btnRegistro].forEach(b => {
+    [btnStock, btnRegistro].forEach(b => {
         b.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
         b.classList.add('text-gray-400', 'bg-transparent');
     });
@@ -134,17 +129,13 @@ function switchAppMode(mode) {
         btnStock.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
         btnStock.classList.remove('text-gray-400', 'bg-transparent');
         stockActions.classList.remove('hidden');
-    } else {
-        btnSales.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
-        btnSales.classList.remove('text-gray-400', 'bg-transparent');
     }
     renderTable();
 }
 expose('switchAppMode', switchAppMode);
 
-// --- Analytics & History (Local + Firestore optional upgrade) ---
-// Por ahora mantenemos el historial en local para no complicar, 
-// pero podríamos migrar 'ventas' a una colección de Firestore.
+
+// --- Analytics & History ---
 function setFilterMode(mode) {
     analyticsMode = mode;
     const btnDay = document.getElementById('filter-day');
@@ -184,9 +175,6 @@ function renderAnalytics() {
     }
 
     const historyBody = document.getElementById('sales-history-body');
-    // const localSales = JSON.parse(localStorage.getItem('puroAmorSales') || '[]');
-    // localSales.sort((a, b) => b.timestamp - a.timestamp);
-    // Use Firestore data
     const salesData = allSales;
 
     let filteredSales = [];
@@ -276,8 +264,9 @@ function renderTable() {
     tbody.innerHTML = filtered.map(p => {
         const totalStock = (p.variants || []).reduce((sum, v) => sum + v.stock, 0);
         const stockColor = totalStock === 0 ? 'text-red-500 bg-red-50' : (totalStock < 5 ? 'text-yellow-600 bg-yellow-50' : 'text-green-600 bg-green-50');
-        const actionIcon = appMode === 'stock' ? '<i class="fa-solid fa-pen"></i>' : '<i class="fa-solid fa-cart-plus"></i>';
-        const actionClass = appMode === 'stock' ? 'bg-gray-100 text-gray-600' : 'bg-mint text-white shadow-md hover:brightness-105';
+        // Always show Edit pen
+        const actionIcon = '<i class="fa-solid fa-pen"></i>';
+        const actionClass = 'bg-gray-100 text-gray-600';
 
         return `
         <tr class="hover:bg-gray-50 transition cursor-pointer group" onclick="itemClick(${p.id})">
@@ -303,8 +292,7 @@ function renderTable() {
 expose('renderTable', renderTable);
 
 function itemClick(id) {
-    if (appMode === 'stock') openStockDrawer(id);
-    else openSalesDrawer(id);
+    openStockDrawer(id);
 }
 expose('itemClick', itemClick);
 
@@ -496,9 +484,6 @@ function preSaveCheck() {
         try {
             await setDoc(doc(db, "productos", docId), newProduct);
 
-            // Local update removed: Handled by onSnapshot
-
-
             statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Guardado Nube';
             closeDrawer();
             renderTable();
@@ -516,8 +501,6 @@ function preDeleteCheck() {
         statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-red-400"></span> Eliminando...';
         try {
             await deleteDoc(doc(db, "productos", String(editingId)));
-            // Local update removed: Handled by onSnapshot
-
 
             statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Eliminado';
             closeDrawer();
@@ -531,359 +514,27 @@ function preDeleteCheck() {
 }
 expose('preDeleteCheck', preDeleteCheck);
 
-// --- SALES DRAWER & POS ---
-function openSalesDrawer(id) {
-    const p = currentInventory.find(x => x.id === id);
-    editingId = id;
-    drawerTitle.innerText = 'Agregar al Pedido';
-    const availableVariants = (p.variants || []).filter(v => v.stock > 0);
-
-    drawerBody.innerHTML = `
-        <div class="flex gap-4 mb-6">
-            <img src="${p.image}" class="w-20 h-20 rounded object-cover border bg-white">
-            <div>
-                <h3 class="font-bold text-xl text-gray-800 leading-tight">${p.name}</h3>
-                <p class="font-mono font-bold text-gray-500 mt-1">$${p.price.toLocaleString()}</p>
-            </div>
-        </div>
-        ${availableVariants.length ? `
-        <div class="grid grid-cols-1 gap-2">
-                ${availableVariants.map(v => `
-                <label class="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-mint/10 hover:border-mint group bg-white shadow-sm transition">
-                    <input type="radio" name="sale-variant" value="${v.id}" class="peer sr-only" onchange="enableAddToOrderBtn()">
-                    <div class="flex items-center gap-3">
-                        <span class="w-4 h-4 rounded-full border-2 border-gray-200 peer-checked:bg-mint peer-checked:border-mint transition"></span>
-                        <div>
-                            <div class="font-bold text-sm text-gray-800">${v.color}</div>
-                            <div class="text-xs text-gray-500">Talle ${v.size} (${v.section || 'U'})</div>
-                        </div>
-                    </div>
-                    <span class="font-bold text-gray-400 peer-checked:text-mint">${v.stock} disp.</span>
-                </label>
-            `).join('')}
-        </div>
-        <div class="mt-8 flex flex-col items-center">
-                <label class="text-xs font-bold uppercase text-gray-400 mb-2">Cantidad</label>
-                <div class="flex items-center gap-6">
-                    <button onclick="adjSale(-1)" class="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-gray-400 text-gray-400 hover:text-gray-600 font-bold text-xl"><i class="fa-solid fa-minus"></i></button>
-                    <span id="sale-qty" class="text-4xl font-bold text-gray-800 w-16 text-center">1</span>
-                    <button onclick="adjSale(1)" class="w-12 h-12 rounded-full border-2 border-gray-200 hover:border-gray-400 text-gray-400 hover:text-gray-600 font-bold text-xl"><i class="fa-solid fa-plus"></i></button>
-                </div>
-        </div>
-        ` : `<div class="bg-red-50 text-red-500 font-bold p-6 rounded-xl text-center"><i class="fa-solid fa-ban text-2xl mb-2 block"></i>Sin stock disponible</div>`}
-    `;
-
-    drawerFooter.innerHTML = `<button id="btn-add-order" onclick="addToOrder()" disabled class="w-full bg-gray-300 text-gray-500 font-bold py-4 rounded-xl transition-all text-lg shadow-none">Agregar al Pedido <i class="fa-solid fa-cart-plus ml-2"></i></button>`;
-    openDrawerAnimation();
-}
-expose('openSalesDrawer', openSalesDrawer);
-
-let saleQty = 1;
-
-function adjSale(d) {
-    saleQty = Math.max(1, saleQty + d);
-    document.getElementById('sale-qty').innerText = saleQty;
-}
-expose('adjSale', adjSale);
-
-function enableAddToOrderBtn() {
-    const btn = document.getElementById('btn-add-order');
-    btn.disabled = false;
-    btn.classList.remove('bg-gray-300', 'text-gray-500', 'shadow-none');
-    btn.classList.add('bg-gray-900', 'text-white', 'shadow-lg');
-}
-expose('enableAddToOrderBtn', enableAddToOrderBtn);
-
-function addToOrder() {
-    const radios = document.getElementsByName('sale-variant');
-    let selectedId;
-    for (const r of radios) { if (r.checked) selectedId = r.value; }
-
-    const p = currentInventory.find(x => x.id === editingId);
-    const v = p.variants.find(x => x.id == selectedId);
-    const currentInCart = currentOrder.find(item => item.variantId == selectedId);
-    const qtyInCart = currentInCart ? currentInCart.qty : 0;
-
-    if ((v.stock - qtyInCart) < saleQty) {
-        return alert(`¡STOCK INSUFICIENTE!\nStock Total: ${v.stock}\nYa en carrito: ${qtyInCart}\nIntentas agregar: ${saleQty}`);
-    }
-
-    if (currentInCart) {
-        currentInCart.qty += saleQty;
-    } else {
-        currentOrder.push({
-            productId: p.id,
-            variantId: v.id,
-            name: p.name,
-            price: p.price,
-            color: v.color,
-            size: v.size,
-            section: v.section,
-            qty: saleQty
-        });
-    }
-
-    updateMiniCart();
-
-    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
-
-    // Ticket Style Design
-    const msg = `
-        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-100 max-w-sm mx-auto relative overflow-hidden">
-            <!-- Ticket Header -->
-            <div class="text-center border-b-2 border-dashed border-gray-200 pb-4 mb-4">
-                <div class="text-2xl text-gray-800 font-heading font-bold mb-1">Puro Amor Kids</div>
-                <div class="text-green-500 font-bold text-sm uppercase"><i class="fa-solid fa-check"></i> Agregado al Pedido</div>
-            </div>
-
-            <!-- Ticket Body -->
-            <div class="space-y-3 mb-6 font-mono text-sm text-gray-600">
-                <div class="flex justify-between">
-                    <span>Items en Orden:</span>
-                    <span class="font-bold text-gray-800">${currentOrder.length}</span>
-                </div>
-                 <div class="flex justify-between text-base border-t border-gray-100 pt-2 mt-2">
-                    <span class="font-bold text-gray-800">TOTAL PARCIAL:</span>
-                    <span class="font-bold text-gray-900">$${total.toLocaleString()}</span>
-                </div>
-            </div>
-
-            <!-- Ticket Actions -->
-            <div class="space-y-3">
-                <button onclick="closeConfirm(false); closeDrawer();" class="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-200 transition text-sm uppercase tracking-wide">
-                    + Agregar Otro Producto
-                </button>
-                <button onclick="showOrderSummary()" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-black shadow-lg transition text-sm uppercase tracking-wide flex justify-center items-center gap-2">
-                    <span>Finalizar Venta</span>
-                    <i class="fa-solid fa-arrow-right"></i>
-                </button>
-            </div>
-            
-            <!-- Decor -->
-            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-mint to-blue-400"></div>
-            <div class="absolute bottom-0 left-0 w-full h-1 bg-gray-200"></div>
-        </div>
-    `;
-
-    confirmMsg.innerHTML = msg;
-    confirmModal.classList.remove('hidden');
-    // Hide default buttons since we included custom ones
-    const defaultBtns = confirmModal.querySelector('.flex.gap-3');
-    if (defaultBtns) defaultBtns.classList.add('hidden');
-}
-expose('addToOrder', addToOrder);
-
-function showOrderSummary() {
-    confirmModal.classList.add('hidden');
-    setTimeout(() => confirmModal.querySelector('.flex.gap-3').classList.remove('hidden'), 500);
-
-    closeDrawer();
-    drawerTitle.innerText = 'Resumen de Venta';
-    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
-
-    drawerBody.innerHTML = `
-        <div class="space-y-4">
-            ${currentOrder.map((item, idx) => `
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <div>
-                        <div class="font-bold text-gray-800">${item.name}</div>
-                        <div class="text-xs text-gray-500">${item.color} - Talle ${item.size}</div>
-                    </div>
-                    <div class="text-right">
-                        <div class="font-bold text-lg text-gray-800">x${item.qty}</div>
-                        <div class="font-mono text-gray-400 text-xs">$${(item.price * item.qty).toLocaleString()}</div>
-                        <button onclick="removeFromOrder(${idx})" class="text-red-400 text-xs underline mt-1">Quitar</button>
-                    </div>
-                </div>
-            `).join('')}
-            
-            <div class="border-t pt-4 mt-6">
-                <div class="flex justify-between items-center text-2xl font-bold text-gray-900">
-                    <span>Total a Cobrar:</span>
-                    <span>$${total.toLocaleString()}</span>
-                </div>
-            </div>
-        </div>
-    `;
-
-    drawerFooter.innerHTML = `
-            <button onclick="askToFinalize()" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg text-xl hover:bg-green-600 transition">
-            <i class="fa-solid fa-money-bill-wave mr-2"></i> Confirmar Venta
-            </button>
-    `;
-    openDrawerAnimation();
-}
-expose('showOrderSummary', showOrderSummary);
-
-function removeFromOrder(idx) {
-    currentOrder.splice(idx, 1);
-    updateMiniCart();
-    if (currentOrder.length === 0) {
-        closeDrawer();
-        alert("Pedido cancelado (vacío).");
-    } else {
-        showOrderSummary();
-    }
-}
-expose('removeFromOrder', removeFromOrder);
-
-// --- FINALIZE ORDER (UPDATE FIRESTORE STOCK) ---
-// --- FINALIZE ORDER (UPDATE FIRESTORE STOCK) ---
-function askToFinalize() {
-    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
-    const defaultBtns = confirmModal.querySelector('.flex.gap-3');
-    if (defaultBtns) defaultBtns.classList.remove('hidden');
-
-    requestConfirm(`
-        <div class="text-gray-800 text-lg">¿Estás seguro de finalizar la venta por <strong>$${total.toLocaleString()}</strong>?</div>
-        <div class="text-xs text-gray-500 mt-2">Esta acción descontará el stock de la base de datos.</div>
-    `, () => {
-        executeSale();
-    });
-}
-expose('askToFinalize', askToFinalize);
-
-function executeSale() {
-    statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-blue-500"></span> Procesando Venta...';
-
-    // Preparar batch
-    const batch = writeBatch(db);
-
-    // Need to group updates by product ID because we might have multiple variants of same product sold
-    // Getting fresh copies from memory (assuming memory is sync with DB mostly, but ideally should read-modify-write transactional... 
-    // for simplicity we trust memory state + write batch) 
-
-    const updates = new Map(); // prodId -> { productRef, productData }
-
-    currentOrder.forEach(item => {
-        if (!updates.has(item.productId)) {
-            updates.set(item.productId, {
-                // We need a deep clone to modify
-                data: JSON.parse(JSON.stringify(currentInventory.find(p => p.id === item.productId)))
-            });
-        }
-
-        const pData = updates.get(item.productId).data;
-        const variant = pData.variants.find(v => v.id == item.variantId);
-        if (variant) {
-            variant.stock -= item.qty;
-            if (variant.stock < 0) variant.stock = 0; // Safety
-        }
-    });
-
-    // Check updates and add to batch
-    updates.forEach((val, key) => {
-        const docRef = doc(db, "productos", String(key));
-        batch.set(docRef, val.data);
-    });
-
-    batch.commit().then(() => {
-        // Success
-        // Update Local State
-        updates.forEach((val, key) => {
-            const idx = currentInventory.findIndex(p => p.id === key);
-            if (idx !== -1) currentInventory[idx] = val.data;
-        });
-
-        // Save Sales History to FIRESTORE
-        const saleRecord = {
-            timestamp: Date.now(),
-            total: currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0),
-            items: currentOrder,
-            dateString: new Date().toLocaleDateString()
-        };
-
-        // Add to 'ventas' collection
-        addDoc(collection(db, "ventas"), saleRecord).catch(e => console.error("Error saving sale history:", e));
-
-        currentOrder = [];
-        updateMiniCart();
-        closeDrawer();
-        renderTable();
-
-        statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Venta Exitosa';
-
-        // Success Feedback (Reuse confirm modal but hide cancel buttons, or simple alert)
-        // Let's use custom HTML in confirm modal and HIDE default buttons
-        const defaultBtns = confirmModal.querySelector('.flex.gap-3');
-        if (defaultBtns) defaultBtns.classList.add('hidden');
-
-        requestConfirm(`
-            <div class="text-green-500 text-5xl mb-4"><i class="fa-solid fa-check-circle"></i></div>
-            <div class="text-gray-800 font-bold text-xl">¡Venta Registrada!</div>
-            <div class="text-gray-500 text-sm mt-2 mb-4">Stock descontado en la nube.</div>
-            <button onclick="closeConfirm(false); renderTable(); switchAppMode('registro');" class="w-full bg-gray-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-black transition">
-                Aceptar
-            </button>
-        `, null); // No callback needed for the Confirm default button since we hid, we use custom button
-
-    }).catch(err => {
-        console.error("Error finalizing:", err);
-        statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Error Venta';
-        alert("Hubo un error al actualizar el stock en la nube.");
-    });
+// --- Drawer Animation Helper ---
+function openDrawerAnimation() {
+    drawer.classList.remove('drawer-closed');
+    drawer.classList.add('drawer-open');
+    overlay.classList.remove('hidden');
 }
 
-function updateMiniCart() {
-    const widget = document.getElementById('mini-cart-widget');
-    const count = document.getElementById('mini-cart-count');
-    const totalEl = document.getElementById('mini-cart-total');
-
-    if (!widget || !count || !totalEl) return; // Safety check
-
-    if (currentOrder.length === 0) {
-        widget.classList.remove('opacity-100', 'translate-y-0');
-        widget.classList.add('opacity-0', 'translate-y-10');
-        setTimeout(() => widget.classList.add('hidden'), 300);
-        return;
-    }
-
-    widget.classList.remove('hidden');
-    setTimeout(() => {
-        widget.classList.remove('opacity-0', 'translate-y-10');
-        widget.classList.add('opacity-100', 'translate-y-0');
-    }, 10);
-
-    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
-    count.innerText = currentOrder.length;
-    totalEl.innerText = `$${total.toLocaleString()}`;
+function closeDrawer() {
+    drawer.classList.add('drawer-closed');
+    drawer.classList.remove('drawer-open');
+    overlay.classList.add('hidden');
+    editingId = null;
+    tempVariants = [];
 }
-expose('updateMiniCart', updateMiniCart);
-
-function openDrawerAnimation() { drawer.classList.remove('drawer-closed'); drawer.classList.add('drawer-open'); overlay.classList.remove('hidden'); }
-expose('openDrawerAnimation', openDrawerAnimation);
-
-function closeDrawer() { drawer.classList.add('drawer-closed'); drawer.classList.remove('drawer-open'); overlay.classList.add('hidden'); }
 expose('closeDrawer', closeDrawer);
 
-// --- IMAGE UPLOAD ---
-async function uploadImage(input) {
-    const file = input.files[0];
-    if (!file) return;
-
-    const status = document.getElementById('upload-status');
-    status.innerText = "Subiendo imagen...";
-    status.classList.remove('hidden', 'text-green-500', 'text-red-500');
-    status.classList.add('text-mint', 'animate-pulse');
-
-    try {
-        const path = `productos/${Date.now()}_${file.name}`;
-        const storageRef = ref(storage, path);
-
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-
-        document.getElementById('edit-image').value = url;
-
-        status.innerText = "¡Imagen cargada!";
-        status.classList.remove('text-mint', 'animate-pulse');
-        status.classList.add('text-green-500');
-    } catch (error) {
-        console.error("Upload failed", error);
-        status.innerText = "Error al subir";
-        status.classList.remove('text-mint', 'animate-pulse');
-        status.classList.add('text-red-500');
-        alert("Error al subir la imagen a Firebase Storage");
-    }
+// Image Upload Mockup/Helper
+function uploadImage(input) {
+    // In a real app we would upload to Firebase Storage here
+    // For now we just let the user know they can use a URL
+    alert('Por ahora ingresa la URL de la imagen manualmente.');
+    // Or implement actual upload if desired
 }
 expose('uploadImage', uploadImage);

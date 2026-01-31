@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, onSnapshot, writeBatch, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // State
 let cart = JSON.parse(localStorage.getItem('puroamor_cart')) || [];
@@ -443,37 +443,115 @@ function processPayment() {
     const originalText = payBtn.innerHTML;
     payBtn.innerHTML = '<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>';
 
-    setTimeout(() => {
+    // Get User Data
+    const inputs = document.getElementById('step-1').querySelectorAll('input');
+    const userData = {};
+    inputs.forEach(i => userData[i.placeholder] = i.value);
+
+    // FIRESTORE TRANSACTION: DEDUCT STOCK & RECORD SALE
+    const batch = writeBatch(db);
+    const orderItems = [];
+
+    // Check stock for each item locally first (optimistic)
+    // In a real app we would use a Transaction to guarantee consistency
+    let stockError = null;
+
+    cart.forEach(cartItem => {
+        const product = appProducts.find(p => p.id === cartItem.id);
+        if (!product) { stockError = `${cartItem.name} ya no existe`; return; }
+
+        // Find variant
+        // We stored "color - Talle size" in variantStr usually, but logic in addToCart didn't save variantId explicitly in top level object
+        // We relied on cartId = "prodId-varId". Let's parse it.
+        const variantId = parseInt(cartItem.cartId.split('-')[1]);
+        const variant = product.variants.find(v => v.id === variantId);
+
+        if (!variant) { stockError = `Variante de ${cartItem.name} no encontrada`; return; }
+        if (variant.stock < cartItem.quantity) { stockError = `Stock insuficiente para ${cartItem.name} (${variant.color})`; return; }
+
+        // Deduct logic: We need to write the NEW variants array to the product doc
+        // Note: multiple cart items might affect the same product.
+        // Doing this inside a loop with naive updates to 'product' object works because 'product' is a reference to the item in 'appProducts' array
+        // However, we need to ensure we only queue one write per document in the batch.
+        variant.stock -= cartItem.quantity;
+
+        orderItems.push({
+            productId: product.id,
+            variantId: variant.id,
+            name: product.name,
+            color: variant.color,
+            size: variant.size,
+            qty: cartItem.quantity,
+            price: cartItem.price
+        });
+    });
+
+    if (stockError) {
+        alert(stockError);
+        payBtn.disabled = false;
+        payBtn.innerHTML = originalText;
+        return;
+    }
+
+    // Prepare Batch Writes for modified products
+    // We iterate unique products involved
+    const involvedProductIds = [...new Set(cart.map(i => i.id))];
+    involvedProductIds.forEach(pid => {
+        const p = appProducts.find(prod => prod.id === pid);
+        const ref = doc(db, "productos", String(pid));
+        batch.set(ref, p); // Writes the updated variants array
+    });
+
+    // Execute Batch
+    batch.commit().then(async () => {
+        console.log("Stock actualizado.");
+
+        // Record Sale
+        const saleRecord = {
+            timestamp: Date.now(),
+            dateString: new Date().toLocaleDateString(),
+            items: orderItems,
+            total: cart.reduce((acc, i) => acc + (i.price * i.quantity), 0),
+            userData: userData,
+            method: method,
+            status: 'completed'
+        };
+        await addDoc(collection(db, "ventas"), saleRecord);
+
+
+        // Handling Success based on Method
         if (method === 'whatsapp') {
-            // WhatsApp Flow
             const phoneNumber = "5491122334455";
-            let message = "Hola *Puro Amor*! 💕 Quiero realizar el siguiente pedido:\n\n";
+            let message = "Hola *Puro Amor*! 💕 Acabo de comprar en la web:\n\n";
             cart.forEach(item => {
                 message += `• ${item.name} (${item.variantStr}) x${item.quantity}\n`;
             });
-            const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-            message += `\n*Total estimado: $${total.toLocaleString()}*`;
-
-            // Get user data
-            const inputs = document.getElementById('step-1').querySelectorAll('input');
-            const userData = Array.from(inputs).map(i => i.value).join(', ');
-            message += `\n\nDatos de Envío: ${userData}`;
-            message += `\n\nQuedo a la espera para coordinar. Gracias!`;
+            message += `\n*Total: $${saleRecord.total.toLocaleString()}*`;
+            message += `\n\nMis datos: ${Object.values(userData).join(', ')}`;
 
             window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
+
+            // For WhatsApp we usually simulate success locally after redirect
             cart = [];
             saveCart();
             updateCartUI();
             closeCheckout();
-            return;
+            // Maybe show success modal too?
+            showSuccessModal();
+        } else {
+            // Card/MP
+            showStatus(true);
         }
 
-        // Random Success/Fail Simulation for Card/MP
-        const isSuccess = Math.random() > 0.3; // 70% success chance
-        showStatus(isSuccess);
         payBtn.disabled = false;
         payBtn.innerHTML = originalText;
-    }, 2000);
+
+    }).catch(error => {
+        console.error("Error processing order:", error);
+        alert("Hubo un error al procesar el pedido. Por favor intenta nuevamente.");
+        payBtn.disabled = false;
+        payBtn.innerHTML = originalText;
+    });
 }
 expose('processPayment', processPayment);
 

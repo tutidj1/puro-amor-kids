@@ -197,14 +197,12 @@
                     <span>Total:</span>
                     <span id="cart-total">$0</span>
                 </div>
-                <!-- Payment Methods Note -->
                 <div class="text-xs text-gray-500 text-center mb-4">
-                    Aceptamos: Efectivo, Transferencia, Débito y Mercado Pago.
-                    <br>Coordinamos el pago por WhatsApp.
+                    Aceptamos: Efectivo, Débito y Crédito vía Mercado Pago.
                 </div>
                 <button onclick="checkout()"
-                    class="w-full bg-green-500 text-white font-heading font-bold text-2xl py-3 rounded-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2">
-                    <i class="fa-brands fa-whatsapp"></i> Finalizar Pedido
+                    class="w-full bg-mint text-white font-heading font-bold text-2xl py-3 rounded-xl shadow-lg hover:bg-[#8BCBCB] transition-colors flex items-center justify-center gap-2">
+                    Ir a Pagar <i class="fa-solid fa-arrow-right"></i>
                 </button>
             </div>
         </div>
@@ -354,94 +352,24 @@
 
                         <div class="space-y-3">
                             <label
-                                class="flex items-center p-4 border-2 border-gray-100 rounded-xl cursor-pointer hover:border-mint transition-colors group relative overflow-hidden bg-white shadow-sm">
-                                <input type="radio" name="payment" value="card" class="peer sr-only" checked
+                                class="flex items-center p-4 border-2 border-mint bg-mint/5 rounded-xl cursor-pointer transition-colors group relative overflow-hidden shadow-sm">
+                                <input type="radio" name="payment" value="mp" class="peer sr-only" checked
                                     onchange="togglePaymentDetails()">
                                 <div
-                                    class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4 text-blue-600 transition-colors peer-checked:bg-blue-600 peer-checked:text-white">
-                                    <i class="fa-regular fa-credit-card"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <h5 class="font-bold text-gray-800">Tarjeta de Crédito / Débito</h5>
-                                    <p class="text-xs text-gray-500">Procesado de forma segura.</p>
-                                </div>
-                                <div
-                                    class="absolute inset-0 border-2 border-transparent peer-checked:border-mint rounded-xl transition-all">
-                                </div>
-                            </label>
-
-                            <label
-                                class="flex items-center p-4 border-2 border-gray-100 rounded-xl cursor-pointer hover:border-mint transition-colors group relative overflow-hidden bg-white shadow-sm">
-                                <input type="radio" name="payment" value="mp" class="peer sr-only"
-                                    onchange="togglePaymentDetails()">
-                                <div
-                                    class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center mr-4 text-blue-400 transition-colors peer-checked:bg-blue-400 peer-checked:text-white">
+                                    class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center mr-4 text-blue-400 transition-colors peer-checked:bg-blue-500 peer-checked:text-white">
                                     <i class="fa-solid fa-handshake"></i>
                                 </div>
                                 <div class="flex-1">
                                     <h5 class="font-bold text-gray-800">Mercado Pago</h5>
-                                    <p class="text-xs text-gray-500">Envío de dinero o QR.</p>
+                                    <p class="text-xs text-gray-500">Tarjetas, Rapipago, PagoFácil o Dinero en cuenta.
+                                    </p>
                                 </div>
-                                <div
-                                    class="absolute inset-0 border-2 border-transparent peer-checked:border-mint rounded-xl transition-all">
+                                <div class="absolute inset-0 border-2 border-mint rounded-xl transition-all">
                                 </div>
                             </label>
 
-                            <label
-                                class="flex items-center p-4 border-2 border-gray-100 rounded-xl cursor-pointer hover:border-mint transition-colors group relative overflow-hidden bg-white shadow-sm">
-                                <input type="radio" name="payment" value="whatsapp" class="peer sr-only"
-                                    onchange="togglePaymentDetails()">
-                                <div
-                                    class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-4 text-green-600 transition-colors peer-checked:bg-green-600 peer-checked:text-white">
-                                    <i class="fa-brands fa-whatsapp"></i>
-                                </div>
-                                <div class="flex-1">
-                                    <h5 class="font-bold text-gray-800">Acordar por WhatsApp</h5>
-                                    <p class="text-xs text-gray-500">Armamos el pedido juntos.</p>
-                                </div>
-                                <div
-                                    class="absolute inset-0 border-2 border-transparent peer-checked:border-mint rounded-xl transition-all">
-                                </div>
-                            </label>
-                        </div>
-
-                        <!-- Payment Details Form (Only for Card) -->
-                        <div id="card-details" class="pt-4 border-t border-gray-100 mt-4 animate-fade-in-down">
-                            <div class="bg-gray-50 p-4 rounded-xl space-y-3">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Número de
-                                        Tarjeta</label>
-                                    <div class="relative">
-                                        <input type="text"
-                                            class="w-full bg-white border border-gray-200 rounded-lg p-2 pl-10 font-mono text-sm"
-                                            placeholder="0000 0000 0000 0000">
-                                        <i class="fa-regular fa-credit-card absolute left-3 top-3 text-gray-400"></i>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label
-                                            class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Vencimiento</label>
-                                        <input type="text"
-                                            class="w-full bg-white border border-gray-200 rounded-lg p-2 font-mono text-sm text-center"
-                                            placeholder="MM/YY">
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-[10px] font-bold text-gray-400 uppercase mb-1">CVC</label>
-                                        <input type="text"
-                                            class="w-full bg-white border border-gray-200 rounded-lg p-2 font-mono text-sm text-center"
-                                            placeholder="123">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre en
-                                        Tarjeta</label>
-                                    <input type="text"
-                                        class="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-sm text-gray-800 uppercase"
-                                        placeholder="COMO FIGURA EN PLÁSTICO">
-                                </div>
-                            </div>
+                            <!-- Placeholder for MP Brick -->
+                            <div id="mp-brick-container" class="hidden"></div>
                         </div>
 
                         <div class="pt-4 flex gap-3">

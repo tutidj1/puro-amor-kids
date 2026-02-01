@@ -399,32 +399,17 @@ function updateCheckoutSteps() {
     });
 }
 
+
 function togglePaymentDetails() {
-    const method = document.querySelector('input[name="payment"]:checked').value;
-    const cardDetails = document.getElementById('card-details');
+    // Only one method now: Mercado Pago
+    // We keep this function structure in case we add more methods later
     const summaryText = document.getElementById('payment-summary-text');
     const payBtn = document.getElementById('pay-btn');
 
-    if (method === 'card') {
-        cardDetails.classList.remove('hidden');
-        summaryText.innerHTML = 'Pagando con <strong>Tarjeta</strong>. La transacción es segura y encriptada.';
-        payBtn.innerHTML = '<span class="relative z-10 flex items-center justify-center gap-2">Pagar Ahora <i class="fa-solid fa-lock"></i></span>';
-        payBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
-        payBtn.classList.add('bg-mint', 'hover:bg-[#8BCBCB]');
-    } else if (method === 'mp') {
-        cardDetails.classList.add('hidden');
-        summaryText.innerHTML = 'Serás redirigido a <strong>Mercado Pago</strong> para completar el pago.';
-        payBtn.innerHTML = '<span class="relative z-10 flex items-center justify-center gap-2">Ir a Pagar <i class="fa-solid fa-arrow-up-right-from-square"></i></span>';
-        payBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
-        payBtn.classList.add('bg-mint', 'hover:bg-[#8BCBCB]');
-    } else {
-        // WhatsApp
-        cardDetails.classList.add('hidden');
-        summaryText.innerHTML = 'Se abrirá <strong>WhatsApp</strong> para enviarnos tu pedido.';
-        payBtn.innerHTML = '<span class="relative z-10 flex items-center justify-center gap-2">Enviar Pedido <i class="fa-brands fa-whatsapp"></i></span>';
-        payBtn.classList.remove('bg-mint', 'hover:bg-[#8BCBCB]');
-        payBtn.classList.add('bg-green-500', 'hover:bg-green-600');
-    }
+    summaryText.innerHTML = 'Serás redirigido a <strong>Mercado Pago</strong> para completar el pago de forma segura.';
+    payBtn.innerHTML = '<span class="relative z-10 flex items-center justify-center gap-2">Pagar con Mercado Pago <i class="fa-solid fa-lock"></i></span>';
+    payBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+    payBtn.classList.add('bg-mint', 'hover:bg-[#8BCBCB]');
 }
 expose('togglePaymentDetails', togglePaymentDetails);
 
@@ -436,7 +421,7 @@ function updateCheckoutSummary() {
 
 function processPayment() {
     const payBtn = document.getElementById('pay-btn');
-    const method = document.querySelector('input[name="payment"]:checked').value;
+    const method = 'mp'; // Fixed to MP
 
     // Loading State
     payBtn.disabled = true;
@@ -514,34 +499,14 @@ function processPayment() {
             total: cart.reduce((acc, i) => acc + (i.price * i.quantity), 0),
             userData: userData,
             method: method,
-            status: 'completed'
+            status: 'pending_payment' // Set to pending until MP confirmation really
         };
         await addDoc(collection(db, "ventas"), saleRecord);
 
 
         // Handling Success based on Method
-        if (method === 'whatsapp') {
-            const phoneNumber = "5491122334455";
-            let message = "Hola *Puro Amor*! 💕 Acabo de comprar en la web:\n\n";
-            cart.forEach(item => {
-                message += `• ${item.name} (${item.variantStr}) x${item.quantity}\n`;
-            });
-            message += `\n*Total: $${saleRecord.total.toLocaleString()}*`;
-            message += `\n\nMis datos: ${Object.values(userData).join(', ')}`;
-
-            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`, '_blank');
-
-            // For WhatsApp we usually simulate success locally after redirect
-            cart = [];
-            saveCart();
-            updateCartUI();
-            closeCheckout();
-            // Maybe show success modal too?
-            showSuccessModal();
-        } else {
-            // Card/MP
-            showStatus(true);
-        }
+        // For now, since MP is not actually connected, we simulate success
+        showStatus(true); // Shows the generic success modal
 
         payBtn.disabled = false;
         payBtn.innerHTML = originalText;
@@ -567,8 +532,8 @@ function showStatus(success) {
 
     if (success) {
         icon.innerHTML = '<i class="fa-solid fa-circle-check text-green-500"></i>';
-        title.innerText = '¡Pago Exitoso!';
-        msg.innerText = 'Hemos recibido tu pedido correctamente. Te enviamos un email con los detalles.';
+        title.innerText = '¡Pedido Iniciado!';
+        msg.innerText = 'Hemos registrado tu pedido. En breve -cuando configuremos MP- serás redirigido al pago.';
         // Clear Cart
         cart = [];
         saveCart();
@@ -576,7 +541,7 @@ function showStatus(success) {
     } else {
         icon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-500"></i>';
         title.innerText = 'Pago Rechazado';
-        msg.innerText = 'Hubo un problema con tu método de pago. Por favor intenta nuevamente o coin otro medio.';
+        msg.innerText = 'Hubo un problema con tu método de pago. Por favor intenta nuevamente.';
     }
 
     // Animations
@@ -592,7 +557,7 @@ function resetCheckoutUI() {
     currentStep = 1;
     updateCheckoutSteps();
     document.getElementById('checkout-form').reset();
-    document.querySelector('input[name="payment"][value="card"]').checked = true;
+    // No more radio buttons to reset
     togglePaymentDetails();
 }
 

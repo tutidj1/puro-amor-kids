@@ -8,6 +8,7 @@
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -231,11 +232,23 @@
                     <p id="modal-desc" class="text-gray-600 mb-6 leading-relaxed">Description goes here.</p>
 
                     <!-- Size Selector -->
-                    <div class="mb-8">
+                    <div class="mb-4">
                         <label class="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">Elegir
                             Talle:</label>
                         <div id="modal-sizes" class="flex flex-wrap gap-2">
                             <!-- Size chips injected here -->
+                        </div>
+                    </div>
+
+                    <!-- Quantity Selector -->
+                    <div class="mb-8 flex items-center gap-4">
+                        <label class="block text-sm font-bold text-gray-500 uppercase tracking-wide">Cantidad:</label>
+                        <div class="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
+                            <button onclick="changeQty(-1)"
+                                class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-white rounded transition font-bold text-lg">-</button>
+                            <span id="modal-qty" class="w-10 text-center font-bold text-gray-800 text-lg">1</span>
+                            <button onclick="changeQty(1)"
+                                class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-green-500 hover:bg-white rounded transition font-bold text-lg">+</button>
                         </div>
                     </div>
 
@@ -254,7 +267,7 @@
     <div id="checkout-modal"
         class="fixed inset-0 z-[80] hidden p-4 flex items-center justify-center transition-all duration-300 backdrop-blur-sm bg-black/40 opacity-0"
         onclick="if(event.target === this) closeCheckout()">
-        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform scale-95 transition-all duration-300 relative"
+        <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform scale-95 transition-all duration-300 relative flex flex-col max-h-[90vh]"
             id="checkout-panel">
 
             <!-- Header -->
@@ -288,7 +301,7 @@
             </div>
 
             <!-- Content Steps -->
-            <div class="p-8">
+            <div class="p-8 flex-1 overflow-y-auto">
                 <form id="checkout-form" onsubmit="event.preventDefault()">
 
                     <!-- STEP 1: SHIPPING INFO -->
@@ -302,35 +315,22 @@
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre
                                     Completo</label>
-                                <input type="text" required
+                                <input type="text" required name="nombre"
                                     class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
                                     placeholder="Ej: Juan Pérez">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Teléfono /
                                     WhatsApp</label>
-                                <input type="tel" required
+                                <input type="tel" required name="telefono"
                                     class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
                                     placeholder="Ej: 11 1234 5678">
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Ciudad</label>
-                                    <input type="text" required
-                                        class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
-                                        placeholder="Ej: CABA">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">CP</label>
-                                    <input type="text" required
-                                        class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
-                                        placeholder="Ej: 1414">
-                                </div>
-                            </div>
+                            <!-- City and CP removed as requested -->
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dirección / Punto de
                                     Retiro</label>
-                                <input type="text" required
+                                <input type="text" required name="direccion"
                                     class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
                                     placeholder="Ej: Av. Santa Fe 1234">
                             </div>

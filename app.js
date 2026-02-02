@@ -5,6 +5,7 @@ import { collection, onSnapshot, writeBatch, doc, addDoc } from "https://www.gst
 let cart = JSON.parse(localStorage.getItem('puroamor_cart')) || [];
 let currentProduct = null;
 let selectedVariant = null;
+let selectedQty = 1;
 let appProducts = [];
 
 // DOM Elements
@@ -172,6 +173,11 @@ expose('filterProducts', filterProducts);
 function openProductModal(id) {
     currentProduct = appProducts.find(p => p.id === id);
     selectedVariant = null;
+    selectedQty = 1; // Reset Qty
+
+    // Update Qty UI
+    const qtyCheck = document.getElementById('modal-qty');
+    if (qtyCheck) qtyCheck.innerText = selectedQty;
 
     modalImg.src = currentProduct.image;
     modalTitle.innerText = currentProduct.name;
@@ -207,8 +213,30 @@ function openProductModal(id) {
 }
 expose('openProductModal', openProductModal);
 
+// NEW: Quantity Logic
+function changeQty(delta) {
+    const newQty = selectedQty + delta;
+    if (newQty < 1) return;
+
+    // Check Stock cap if variant selected
+    if (selectedVariant && newQty > selectedVariant.stock) {
+        alert(`Solo hay ${selectedVariant.stock} unidades disponibles.`);
+        return;
+    }
+
+    selectedQty = newQty;
+    document.getElementById('modal-qty').innerText = selectedQty;
+}
+expose('changeQty', changeQty);
+
 function selectVariant(variantId, btn) {
     selectedVariant = currentProduct.variants.find(v => v.id === variantId);
+
+    // Validate current qty against new variant stock
+    if (selectedQty > selectedVariant.stock) {
+        selectedQty = selectedVariant.stock;
+        document.getElementById('modal-qty').innerText = selectedQty;
+    }
 
     document.querySelectorAll('.variant-btn').forEach(b => {
         b.classList.remove('bg-mint', 'text-white', 'border-mint');
@@ -238,8 +266,15 @@ function addToCart(product, variant) {
     const cartItemId = `${product.id}-${variant.id}`;
     const existingItem = cart.find(item => item.cartId === cartItemId);
 
+    // Validate total stock
+    const currentQtyInCart = existingItem ? existingItem.quantity : 0;
+    if (currentQtyInCart + selectedQty > variant.stock) {
+        alert(`No puedes agregar más. Stock disponible: ${variant.stock}. Ya tienes ${currentQtyInCart} en carrito.`);
+        return;
+    }
+
     if (existingItem) {
-        existingItem.quantity++;
+        existingItem.quantity += selectedQty;
     } else {
         cart.push({
             cartId: cartItemId,
@@ -248,7 +283,7 @@ function addToCart(product, variant) {
             price: product.price,
             image: product.image,
             variantStr: `${variant.color} - Talle ${variant.size}`,
-            quantity: 1
+            quantity: selectedQty
         });
     }
     saveCart();
@@ -419,45 +454,116 @@ function updateCheckoutSummary() {
     document.getElementById('checkout-total').innerText = `$${total.toLocaleString()}`;
 }
 
-function processPayment() {
+// --- MERCADO PAGO INTEGRATION ---
+// REPLACE WITH YOUR ACCESS TOKEN FROM: https://www.mercadopago.com.ar/developers/panel
+const MP_ACCESS_TOKEN = 'TEST-7613271780824024-020121-6d338870830db97669d0335ac4250495-207436845'; // Placeholder
+const MP_PUBLIC_KEY = 'TEST-18dcf9ce-37e4-42b7-872f-5b16954a2267'; // Placeholder
+
+let mp = null;
+let bricksBuilder = null;
+
+try {
+    mp = new MercadoPago(MP_PUBLIC_KEY, { locale: 'es-AR' });
+    bricksBuilder = mp.bricks();
+} catch (e) {
+    console.warn('Mercado Pago SDK failed to load or keys are missing.');
+}
+
+// Payment Status Helper used by Bricks
+window.paymentBrickController = {
+    onSuccess: (paymentId) => {
+        console.log('Payment Success:', paymentId);
+        finishOrder(true, paymentId);
+    },
+    onError: (error) => {
+        console.error('Payment Error:', error);
+        finishOrder(false);
+    },
+    onReady: () => {
+        const payBtn = document.getElementById('pay-btn'); // Hide our button, show brick
+        if (payBtn) payBtn.classList.add('hidden');
+        document.getElementById('payment-summary-text').classList.add('hidden');
+    }
+};
+
+
+async function processPayment() {
     const payBtn = document.getElementById('pay-btn');
-    const method = 'mp'; // Fixed to MP
-
-    // Loading State
-    payBtn.disabled = true;
+    const loadingHtml = '<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span> Procesando...';
     const originalText = payBtn.innerHTML;
-    payBtn.innerHTML = '<span class="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full"></span>';
 
-    // Get User Data
+    // SIMULATION MODE CHECK
+    // Since we are likely running without a backend, creating a preference might block due to CORS if we call API directly.
+    // For this prototype, we will simulate the experience OR try to render the Brick if keys work.
+
+    // 1. Validate Form Data first
     const inputs = document.getElementById('step-1').querySelectorAll('input');
     const userData = {};
-    inputs.forEach(i => userData[i.placeholder] = i.value);
+    for (const input of inputs) {
+        if (!input.checkValidity()) {
+            input.reportValidity();
+            prevStep(1); // Go back to data step
+            return;
+        }
+        // Use 'name' attribute for stability, fallback to id or placeholder if missing
+        const key = input.name || input.id || input.placeholder;
+        userData[key] = input.value;
+    }
 
-    // FIRESTORE TRANSACTION: DEDUCT STOCK & RECORD SALE
+    payBtn.disabled = true;
+    payBtn.innerHTML = loadingHtml;
+
+    // --- MODO SIMULACIÓN ---
+    // Como probablemente no tengamos backend, preguntamos al usuario para probar los flujos
+    setTimeout(async () => {
+        const confirmSim = confirm(`[MODO SIMULACIÓN]\n\n¿Quieres SIMULAR un pago APROBADO?\n\nAceptar = PAGO APROBADO (Descuenta stock, WhatsApp, etc)\nCancelar = PAGO RECHAZADO`);
+
+        if (confirmSim) {
+            await finishOrder(true, 'simulated_id_123', userData);
+        } else {
+            finishOrder(false, null, userData);
+        }
+
+        payBtn.disabled = false;
+        payBtn.innerHTML = originalText;
+    }, 1500);
+
+    // --- REAL IMPLEMENTATION (COMMENTED FOR SAFETY UNTIL BACKEND) ---
+    /*
+    try {
+        const preferenceId = await createPreference(cart, userData);
+        if (preferenceId) {
+             renderBrick(preferenceId);
+        }
+    } catch (e) { ... }
+    */
+}
+expose('processPayment', processPayment);
+
+// Core Logic to Finalize Order
+async function finishOrder(success, paymentId, userData) {
+    const payBtn = document.getElementById('pay-btn');
+
+    if (!success) {
+        showStatus(false);
+        return;
+    }
+
+    // 1. Handle Stock & Firestore
     const batch = writeBatch(db);
     const orderItems = [];
-
-    // Check stock for each item locally first (optimistic)
-    // In a real app we would use a Transaction to guarantee consistency
     let stockError = null;
 
     cart.forEach(cartItem => {
         const product = appProducts.find(p => p.id === cartItem.id);
         if (!product) { stockError = `${cartItem.name} ya no existe`; return; }
 
-        // Find variant
-        // We stored "color - Talle size" in variantStr usually, but logic in addToCart didn't save variantId explicitly in top level object
-        // We relied on cartId = "prodId-varId". Let's parse it.
         const variantId = parseInt(cartItem.cartId.split('-')[1]);
         const variant = product.variants.find(v => v.id === variantId);
 
         if (!variant) { stockError = `Variante de ${cartItem.name} no encontrada`; return; }
         if (variant.stock < cartItem.quantity) { stockError = `Stock insuficiente para ${cartItem.name} (${variant.color})`; return; }
 
-        // Deduct logic: We need to write the NEW variants array to the product doc
-        // Note: multiple cart items might affect the same product.
-        // Doing this inside a loop with naive updates to 'product' object works because 'product' is a reference to the item in 'appProducts' array
-        // However, we need to ensure we only queue one write per document in the batch.
         variant.stock -= cartItem.quantity;
 
         orderItems.push({
@@ -472,53 +578,67 @@ function processPayment() {
     });
 
     if (stockError) {
-        alert(stockError);
-        payBtn.disabled = false;
-        payBtn.innerHTML = originalText;
+        alert("Error de Stock: " + stockError);
         return;
     }
 
-    // Prepare Batch Writes for modified products
-    // We iterate unique products involved
+    // Commit Stock Changes
     const involvedProductIds = [...new Set(cart.map(i => i.id))];
     involvedProductIds.forEach(pid => {
         const p = appProducts.find(prod => prod.id === pid);
         const ref = doc(db, "productos", String(pid));
-        batch.set(ref, p); // Writes the updated variants array
+        batch.set(ref, p);
     });
 
-    // Execute Batch
-    batch.commit().then(async () => {
+    try {
+        await batch.commit();
         console.log("Stock actualizado.");
 
-        // Record Sale
+        // 2. Register Sale
+        const total = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
         const saleRecord = {
             timestamp: Date.now(),
             dateString: new Date().toLocaleDateString(),
             items: orderItems,
-            total: cart.reduce((acc, i) => acc + (i.price * i.quantity), 0),
+            total: total,
             userData: userData,
-            method: method,
-            status: 'pending_payment' // Set to pending until MP confirmation really
+            method: 'Mercado Pago',
+            paymentId: paymentId,
+            status: 'approved'
         };
         await addDoc(collection(db, "ventas"), saleRecord);
 
+        // 3. Success UI
+        showStatus(true); // Popup de agradecimiento
 
-        // Handling Success based on Method
-        // For now, since MP is not actually connected, we simulate success
-        showStatus(true); // Shows the generic success modal
+        // 4. Automatic WhatsApp Notification
+        const ownerPhone = "5491100000000"; // Reemplazar con el número real
+        const address = userData['direccion'] || 'Retiro en Local';
+        const clientName = userData['nombre'] || 'Cliente';
+        const phone = userData['telefono'] || '-';
 
-        payBtn.disabled = false;
-        payBtn.innerHTML = originalText;
+        let itemsList = orderItems.map(i => `- ${i.name} (${i.color} ${i.size}) x${i.qty}`).join('\n');
 
-    }).catch(error => {
+        const msg = encodeURIComponent(`*¡Nueva Venta Web!* 🎉\n\n👤 *Cliente:* ${clientName}\n📞 *Tel:* ${phone}\n📍 *Dirección:* ${address}\n\n🛒 *Pedido:*\n${itemsList}\n\n💰 *Total:* $${total.toLocaleString()}\n\n_Pago vía Mercado Pago (${paymentId})_`);
+
+        const waUrl = `https://wa.me/${ownerPhone}?text=${msg}`;
+
+        // Intentar abrir automáticamente
+        const waWindow = window.open(waUrl, '_blank');
+
+        // Fallback si el navegador bloquea el popup
+        const statusMsg = document.getElementById('status-msg');
+        if (!waWindow) {
+            statusMsg.innerHTML += `<br><br><span class="text-xs text-red-400">(El navegador bloqueó la alerta automática)</span><br><a href="${waUrl}" target="_blank" class="text-green-500 font-bold underline text-lg"><i class="fa-brands fa-whatsapp"></i> Enviar Alerta a Dueña</a>`;
+        } else {
+            statusMsg.innerHTML += `<br><br><span class="text-xs text-green-500"><i class="fa-solid fa-check"></i> Alerta WhatsApp abierta en nueva pestaña.</span>`;
+        }
+
+    } catch (error) {
         console.error("Error processing order:", error);
-        alert("Hubo un error al procesar el pedido. Por favor intenta nuevamente.");
-        payBtn.disabled = false;
-        payBtn.innerHTML = originalText;
-    });
+        alert("Hubo un error crítico al guardar el pedido. Contacta a soporte.");
+    }
 }
-expose('processPayment', processPayment);
 
 function showStatus(success) {
     const overlay = document.getElementById('checkout-status');
@@ -533,7 +653,7 @@ function showStatus(success) {
     if (success) {
         icon.innerHTML = '<i class="fa-solid fa-circle-check text-green-500"></i>';
         title.innerText = '¡Pedido Iniciado!';
-        msg.innerText = 'Hemos registrado tu pedido. En breve -cuando configuremos MP- serás redirigido al pago.';
+        msg.innerText = 'Compra notificada a la vendedora, se pondrán en contacto contigo para coordinar envío o retiro en el local.';
         // Clear Cart
         cart = [];
         saveCart();

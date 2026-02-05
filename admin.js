@@ -13,6 +13,7 @@ let tempVariants = [];
 let pendingAction = null;
 let analyticsMode = 'day';
 let allSales = []; // Stores sales from Firestore
+let currentOrder = [];
 
 // DOM Elements
 const drawer = document.getElementById('drawer');
@@ -99,13 +100,14 @@ function switchAppMode(mode) {
 
     const btnStock = document.getElementById('btn-mode-stock');
     const btnRegistro = document.getElementById('btn-mode-registro');
+    const btnVender = document.getElementById('btn-mode-vender');
 
     const mainArea = document.getElementById('main-area');
     const registroView = document.getElementById('registro-view');
     const stockActions = document.getElementById('stock-actions');
 
     // Reset Buttons
-    [btnStock, btnRegistro].forEach(b => {
+    [btnStock, btnRegistro, btnVender].forEach(b => {
         b.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
         b.classList.add('text-gray-400', 'bg-transparent');
     });
@@ -123,6 +125,12 @@ function switchAppMode(mode) {
         registroView.classList.remove('hidden');
         renderAnalytics();
         return;
+    }
+
+    if (mode === 'vender') {
+        btnVender.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+        btnVender.classList.remove('text-gray-400', 'bg-transparent');
+        updateMiniCart();
     }
 
     if (mode === 'stock') {
@@ -292,7 +300,11 @@ function renderTable() {
 expose('renderTable', renderTable);
 
 function itemClick(id) {
-    openStockDrawer(id);
+    if (appMode === 'stock') {
+        openStockDrawer(id);
+    } else if (appMode === 'vender') {
+        openVariantSelector(id);
+    }
 }
 expose('itemClick', itemClick);
 
@@ -337,6 +349,7 @@ function openStockDrawer(id) {
                             <label class="text-xs font-bold text-gray-400 block mb-1">Sección</label>
                             <select id="new-var-section" class="w-full border p-2 rounded text-sm bg-white font-bold text-gray-700">
                                 <option value="Bebés">Bebé</option>
+                                <option value="No caminantes">No caminantes</option>
                                 <option value="Niños">Niño</option>
                                 <option value="Niñas">Niña</option>
                             </select>
@@ -538,3 +551,276 @@ function uploadImage(input) {
     // Or implement actual upload if desired
 }
 expose('uploadImage', uploadImage);
+
+// --- POS / SELLING LOGIC ---
+
+function openVariantSelector(id) {
+    const p = currentInventory.find(x => x.id === id);
+    if (!p) return;
+
+    drawerTitle.innerText = p.name;
+    const hasVariants = p.variants && p.variants.length > 0;
+
+    let html = `
+        <div class="space-y-6">
+            <div class="flex gap-4">
+                <img src="${p.image}" class="w-24 h-24 rounded-xl object-cover border bg-gray-100">
+                <div>
+                    <div class="text-2xl font-bold text-gray-800">$${p.price.toLocaleString()}</div>
+                    <div class="text-gray-500 text-sm mt-1">${p.category}</div>
+                </div>
+            </div>
+    `;
+
+    if (!hasVariants) {
+        html += `
+            <div class="bg-yellow-50 p-4 rounded-lg text-yellow-700 text-sm font-bold text-center">
+                Este producto no tiene stock cargado.
+            </div>
+        `;
+    } else {
+        html += `<div class="grid grid-cols-1 gap-2">`;
+        p.variants.forEach(v => {
+            const isLow = v.stock < 3;
+            const noStock = v.stock === 0;
+            const stockClass = noStock ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:border-mint cursor-pointer';
+
+            html += `
+                <div onclick="${noStock ? '' : `addToOrder(${p.id}, ${v.id})`}" 
+                    class="${stockClass} p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center group transition">
+                    <div>
+                        <div class="font-bold text-gray-800 group-hover:text-mint transition">${v.color}</div>
+                        <div class="text-xs text-gray-500">Talle: ${v.size}</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold ${noStock ? 'text-gray-400' : (isLow ? 'text-red-500' : 'text-green-500')}">
+                            ${v.stock} disp.
+                        </span>
+                        ${!noStock ? '<i class="fa-solid fa-plus-circle text-2xl text-gray-200 group-hover:text-mint transition"></i>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+    drawerBody.innerHTML = html;
+
+    // Footer is hidden or just close
+    drawerFooter.innerHTML = ``;
+
+    openDrawerAnimation();
+}
+expose('openVariantSelector', openVariantSelector);
+
+function addToOrder(productId, variantId) {
+    const p = currentInventory.find(x => x.id === productId);
+    const v = p.variants.find(x => x.id === variantId);
+
+    if (v.stock <= 0) return alert('No hay stock disponible');
+
+    // Check if already in cart to limit by stock
+    const inCart = currentOrder.filter(i => i.productId === productId && i.variantId === variantId).reduce((a, b) => a + b.qty, 0);
+    if (inCart >= v.stock) return alert('No puedes agregar más de lo que hay en stock');
+
+    // Add to cart
+    const existing = currentOrder.find(i => i.productId === productId && i.variantId === variantId);
+    if (existing) {
+        existing.qty++;
+    } else {
+        currentOrder.push({
+            productId: p.id,
+            variantId: v.id,
+            name: p.name,
+            color: v.color,
+            size: v.size,
+            price: p.price,
+            qty: 1,
+            image: p.image
+        });
+    }
+
+    closeDrawer();
+    updateMiniCart();
+
+    // Small feedback
+    const widget = document.getElementById('mini-cart-widget');
+    widget.classList.add('scale-110');
+    setTimeout(() => widget.classList.remove('scale-110'), 200);
+}
+expose('addToOrder', addToOrder);
+
+function showOrderSummary() {
+    drawerTitle.innerText = 'Tu Pedido';
+    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+
+    if (currentOrder.length === 0) {
+        drawerBody.innerHTML = '<div class="text-center text-gray-400 mt-10">El carrito está vacío</div>';
+        drawerFooter.innerHTML = '';
+        openDrawerAnimation();
+        return;
+    }
+
+    drawerBody.innerHTML = `
+        <div class="space-y-4">
+            ${currentOrder.map((item, idx) => `
+                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <img src="${item.image}" class="w-12 h-12 rounded-lg object-cover bg-gray-100">
+                        <div>
+                            <div class="font-bold text-gray-800 text-sm">${item.name}</div>
+                            <div class="text-xs text-gray-500">${item.color} - Talle ${item.size}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-lg text-gray-800">x${item.qty}</div>
+                        <div class="font-mono text-gray-400 text-xs">$${(item.price * item.qty).toLocaleString()}</div>
+                        <button onclick="removeFromOrder(${idx})" class="text-red-400 text-xs underline mt-1">Quitar</button>
+                    </div>
+                </div>
+            `).join('')}
+            
+            <div class="border-t pt-4 mt-6">
+                <div class="flex justify-between items-center text-2xl font-bold text-gray-900">
+                    <span>Total a Cobrar:</span>
+                    <span>$${total.toLocaleString()}</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    drawerFooter.innerHTML = `
+            <button onclick="askToFinalize()" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg text-xl hover:bg-green-600 transition">
+            <i class="fa-solid fa-money-bill-wave mr-2"></i> Confirmar Venta
+            </button>
+    `;
+    openDrawerAnimation();
+}
+expose('showOrderSummary', showOrderSummary);
+
+function removeFromOrder(idx) {
+    currentOrder.splice(idx, 1);
+    updateMiniCart();
+    if (currentOrder.length === 0) {
+        closeDrawer();
+        alert("Pedido cancelado (vacío).");
+    } else {
+        showOrderSummary();
+    }
+}
+expose('removeFromOrder', removeFromOrder);
+
+function askToFinalize() {
+    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+    const defaultBtns = confirmModal.querySelector('.flex.gap-3');
+    if (defaultBtns) defaultBtns.classList.remove('hidden');
+
+    requestConfirm(`
+        <div class="text-gray-800 text-lg">¿Estás seguro de finalizar la venta por <strong>$${total.toLocaleString()}</strong>?</div>
+        <div class="text-xs text-gray-500 mt-2">Esta acción descontará el stock de la base de datos.</div>
+    `, () => {
+        executeSale();
+    });
+}
+expose('askToFinalize', askToFinalize);
+
+function executeSale() {
+    statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-blue-500"></span> Procesando Venta...';
+
+    const batch = writeBatch(db);
+    const updates = new Map();
+
+    currentOrder.forEach(item => {
+        if (!updates.has(item.productId)) {
+            updates.set(item.productId, {
+                data: JSON.parse(JSON.stringify(currentInventory.find(p => p.id === item.productId)))
+            });
+        }
+
+        const pData = updates.get(item.productId).data;
+        const variant = pData.variants.find(v => v.id == item.variantId);
+        if (variant) {
+            variant.stock -= item.qty;
+            if (variant.stock < 0) variant.stock = 0;
+        }
+    });
+
+    updates.forEach((val, key) => {
+        const docRef = doc(db, "productos", String(key));
+        batch.set(docRef, val.data);
+    });
+
+    batch.commit().then(() => {
+        // Local Update
+        updates.forEach((val, key) => {
+            const idx = currentInventory.findIndex(p => p.id === key);
+            if (idx !== -1) currentInventory[idx] = val.data;
+        });
+
+        const saleRecord = {
+            timestamp: Date.now(),
+            total: currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0),
+            items: currentOrder,
+            dateString: new Date().toLocaleDateString()
+        };
+
+        addDoc(collection(db, "ventas"), saleRecord).catch(e => console.error("Error saving sale history:", e));
+
+        currentOrder = [];
+        updateMiniCart();
+        closeDrawer();
+        renderTable();
+
+        statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Venta Exitosa';
+
+        const defaultBtns = confirmModal.querySelector('.flex.gap-3');
+        if (defaultBtns) defaultBtns.classList.add('hidden');
+
+        requestConfirm(`
+            <div class="text-green-500 text-5xl mb-4"><i class="fa-solid fa-check-circle"></i></div>
+            <div class="text-gray-800 font-bold text-xl">¡Venta Registrada!</div>
+            <div class="text-gray-500 text-sm mt-2 mb-4">Stock descontado en la nube.</div>
+            <button onclick="closeConfirm(false); renderTable(); switchAppMode('registro');" class="w-full bg-gray-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-black transition">
+                Aceptar
+            </button>
+        `, null);
+
+    }).catch(err => {
+        console.error("Error finalizing:", err);
+        statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Error Venta';
+        alert("Hubo un error al actualizar el stock en la nube.");
+    });
+}
+expose('executeSale', executeSale);
+
+function updateMiniCart() {
+    const widget = document.getElementById('mini-cart-widget');
+    const count = document.getElementById('mini-cart-count');
+    const totalEl = document.getElementById('mini-cart-total');
+
+    if (!widget || !count || !totalEl) return;
+
+    if (appMode !== 'vender') {
+        widget.classList.add('hidden');
+        return;
+    }
+
+    if (currentOrder.length === 0) {
+        widget.classList.remove('opacity-100', 'translate-y-0');
+        widget.classList.add('opacity-0', 'translate-y-10');
+        setTimeout(() => widget.classList.add('hidden'), 300);
+        return;
+    }
+
+    widget.classList.remove('hidden');
+    setTimeout(() => {
+        widget.classList.remove('opacity-0', 'translate-y-10');
+        widget.classList.add('opacity-100', 'translate-y-0');
+    }, 10);
+
+    const total = currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0);
+    count.innerText = currentOrder.length;
+    totalEl.innerText = `$${total.toLocaleString()}`;
+}
+expose('updateMiniCart', updateMiniCart);

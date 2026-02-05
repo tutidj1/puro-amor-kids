@@ -34,7 +34,8 @@ btnCargar.addEventListener('click', async () => {
     Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        dynamicTyping: true,
+        dynamicTyping: true, // Auto-converts numbers
+        transformHeader: (h) => h.trim().toLowerCase(), // Normalize headers
         complete: async function (results) {
             const rawData = results.data;
             console.log("Datos crudos:", rawData);
@@ -45,84 +46,118 @@ btnCargar.addEventListener('click', async () => {
                 return;
             }
 
-            // PROCESAMIENTO INTELIGENTE: Agrupar por "Nombre"
+            // PROCESAMIENTO: Agrupación por Nombre y Conteo de Variantes
             const productsMap = new Map();
-            let errors = [];
+            /* 
+               Estructura del Map:
+               Key: "Nombre producto" (string normalizado)
+               Value: {
+                   id: timestamp + random,
+                   name: "Nombre Original",
+                   price: 1234,
+                   image: "nombre.jpg",
+                   category: "General",
+                   variantsMap: Map<"Color|Size|Section", { color, size, section, stock }>
+               }
+            */
 
-            // Diagnóstico rápido de headers
-            const firstRowHeaders = rawData.length > 0 ? Object.keys(rawData[0]) : [];
-            console.log("Headers detectados:", firstRowHeaders);
+            let processedCount = 0;
+            let skippedCount = 0;
 
             rawData.forEach((row, index) => {
-                // Normalizar keys (minúsculas y trim) para evitar problemas
-                const cleanRow = {};
-                Object.keys(row).forEach(k => {
-                    cleanRow[k.trim().toLowerCase()] = row[k];
-                });
+                // Normalizamos las keys para ser tolerantes a espacios o mayúsculas
+                // Pero buscamos las columnas específicas pedidas por el usuario
 
-                // Mapeo de columnas del Usuario -> Campos del Sistema
-                // Excel del user: Nombre, Talle, Color, Precio, Stock, Nombre de Archivo de Imagen, Categoría
-                const name = cleanRow['nombre'];
-                const price = cleanRow['precio'];
-                // Soporte para varias formas de llamar a la imagen
-                const image = cleanRow['nombre de archivo de imagen'] || cleanRow['imagen'] || cleanRow['foto'] || 'https://via.placeholder.com/300';
-                const category = cleanRow['categoría'] || cleanRow['categoria'] || 'General';
+                // Helper para buscar key insensible a case/espacios
+                const getVal = (possibleKeys) => {
+                    const keys = Object.keys(row);
+                    const match = keys.find(k => possibleKeys.includes(k.trim().toLowerCase()));
+                    return match ? row[match] : undefined;
+                };
+
+                const name = getVal(['nombre producto', 'nombre']);
+                const price = getVal(['precio']);
+                const image = getVal(['nombre del archivo imagen', 'imagen', 'foto', 'archivo']);
+                const category = getVal(['categoria', 'categoría', 'seccion']);
 
                 // Variantes
-                const size = cleanRow['talle'];
-                const color = cleanRow['color'];
-                const stock = cleanRow['stock'];
+                const size = getVal(['talle', 'talla']);
+                const color = getVal(['color']);
 
-                if (!name) return; // Saltar filas vacías
+                if (!name) {
+                    skippedCount++;
+                    return;
+                }
 
-                // Si no existe el producto en el mapa, lo creamos
-                if (!productsMap.has(name)) {
-                    productsMap.set(name, {
-                        id: Date.now() + Math.floor(Math.random() * 1000) + index, // ID único temporal basado en tiempo+index
-                        name: String(name).trim(),
+                const cleanName = String(name).trim();
+                const variantKey = `${String(color || 'Unico').trim()}|${String(size || 'U').trim()}|${String(category || 'General').trim()}`;
+
+                // 1. Crear o Recuperar Producto
+                if (!productsMap.has(cleanName)) {
+                    productsMap.set(cleanName, {
+                        id: Date.now() + index, // ID único
+                        name: cleanName,
                         price: Number(price) || 0,
-                        image: String(image).trim(),
-                        category: String(category).trim(),
-                        variants: []
+                        image: image ? String(image).trim() : 'https://via.placeholder.com/150',
+                        category: category ? String(category).trim() : 'General',
+                        variantsMap: new Map() // Usamos un mapa interno para agrupar variantes y contar stock
                     });
                 }
 
-                // Agregamos la variante (si tiene datos de variante)
-                if (size || color || stock !== undefined) {
-                    const product = productsMap.get(name);
-                    product.variants.push({
-                        id: Date.now() + Math.random(), // ID único para la variante
+                const product = productsMap.get(cleanName);
+
+                // 2. Manejar Variante (Conteo de Stock)
+                // Si la variante ya existe, sumamos 1 al stock. Si no, la creamos con stock 1.
+                if (product.variantsMap.has(variantKey)) {
+                    product.variantsMap.get(variantKey).stock += 1;
+                } else {
+                    product.variantsMap.set(variantKey, {
+                        id: Date.now() + Math.random(),
                         color: String(color || 'Único').trim(),
                         size: String(size || 'U').trim(),
-                        stock: Number(stock) || 0,
-                        section: String(category).trim() // Usamos la categoría como sección por defecto
+                        section: String(category || product.category).trim(),
+                        stock: 1 // Primera aparición cuenta como 1
                     });
                 }
+                processedCount++;
             });
 
-            const productsToUpload = Array.from(productsMap.values());
+            // Convertir la estructura intermedia a la estructura final de Firestore
+            const productsToUpload = [];
+            productsMap.forEach(p => {
+                const finalVariants = Array.from(p.variantsMap.values());
+
+                // Actualizamos la categoría principal si hay variantes (usamos la de la primera variante como default)
+                // Esto es opcional, pero mantiene coherencia
+                if (finalVariants.length > 0) {
+                    p.category = finalVariants[0].section;
+                }
+
+                productsToUpload.push({
+                    id: p.id,
+                    name: p.name,
+                    price: p.price,
+                    image: p.image,
+                    category: p.category,
+                    variants: finalVariants
+                });
+            });
 
             if (productsToUpload.length === 0) {
                 setLoading(false);
-                let msg = "No encontré la columna 'Nombre'. ";
-                if (firstRowHeaders.length > 0) {
-                    msg += `Detecté estas columnas: [${firstRowHeaders.join(', ')}]. `;
-                    if (firstRowHeaders.length === 1 && firstRowHeaders[0].includes(';')) {
-                        msg += "Parece un error de 'Punto y coma'. Guarda el CSV separado por COMAS.";
-                    }
-                }
-                setStatus(msg, "error");
+                setStatus("No se encontraron productos válidos. Revisa las columnas (Nombre producto, Precio, etc).", "error");
                 return;
             }
 
             try {
+                console.log(`Subiendo ${productsToUpload.length} productos...`);
                 await uploadToFirestore(productsToUpload);
                 setLoading(false);
-                setStatus(`¡Éxito! Se procesaron ${rawData.length} filas y se crearon ${productsToUpload.length} productos agrupados.`, "success");
+                setStatus(`¡Éxito! Procesados ${processedCount} registros. Creados ${productsToUpload.length} productos con sus variantes y stock calculado.`, "success");
 
                 setTimeout(() => {
                     location.reload();
-                }, 2500);
+                }, 3000);
 
             } catch (error) {
                 console.error("Error subiendo a Firebase:", error);
@@ -133,7 +168,7 @@ btnCargar.addEventListener('click', async () => {
         error: function (error) {
             console.error("Error parseando CSV:", error);
             setLoading(false);
-            setStatus("Error al leer el archivo CSV.", "error");
+            setStatus("Error crítico al leer el archivo CSV.", "error");
         }
     });
 });

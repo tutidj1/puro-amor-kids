@@ -260,6 +260,7 @@ function renderTable() {
     const tbody = document.getElementById('inventory-table');
     let filtered = currentInventory.filter(p => {
         if (currentCategory === 'Todo') return true;
+        if (currentCategory === 'Ofertas') return p.isOffer === true; // Nuevo filtro Ofertas
         const hasVariantInSection = (p.variants || []).some(v => v.section === currentCategory);
         const isLegacyMatch = p.category === currentCategory;
         return hasVariantInSection || isLegacyMatch;
@@ -276,18 +277,24 @@ function renderTable() {
         const actionIcon = '<i class="fa-solid fa-pen"></i>';
         const actionClass = 'bg-gray-100 text-gray-600';
 
+        // Offer Visuals
+        const offerBadge = p.isOffer ? '<span class="ml-2 bg-mustard text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Oferta</span>' : '';
+        const priceDisplay = p.isOffer
+            ? `<div class="flex flex-col"><span class="text-green-600">$${p.offerPrice.toLocaleString()}</span><span class="text-xs text-gray-400 line-through">$${p.price.toLocaleString()}</span></div>`
+            : `$${p.price.toLocaleString()}`;
+
         return `
         <tr class="hover:bg-gray-50 transition cursor-pointer group" onclick="itemClick(${p.id})">
             <td class="p-4">
                 <img src="${p.image}" class="w-12 h-12 rounded-lg object-cover bg-gray-200 shadow-sm border border-gray-100">
             </td>
             <td class="p-4">
-                <div class="font-bold text-gray-800 text-base">${p.name}</div>
+                <div class="font-bold text-gray-800 text-base flex items-center">${p.name} ${offerBadge}</div>
             </td>
             <td class="p-4 text-center">
                 <span class="px-3 py-1 rounded-full text-xs font-bold ${stockColor}">${totalStock} dispo</span>
             </td>
-            <td class="p-4 font-mono text-gray-600 font-bold">$${p.price.toLocaleString()}</td>
+            <td class="p-4 font-mono text-gray-600 font-bold">${priceDisplay}</td>
             <td class="p-4 text-right">
                 <button class="w-10 h-10 rounded-full ${actionClass} flex items-center justify-center transition-all">
                     ${actionIcon}
@@ -311,7 +318,7 @@ expose('itemClick', itemClick);
 // --- STOCK DRAWER ---
 function openStockDrawer(id) {
     editingId = id;
-    const renderForm = (name, price, image) => `
+    const renderForm = (name, price, image, isOffer, offerPrice) => `
         <div class="space-y-6">
             <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4">
                 <h3 class="text-xs font-bold uppercase text-gray-400">Datos Principales</h3>
@@ -321,7 +328,7 @@ function openStockDrawer(id) {
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Precio ($)</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Precio Real ($)</label>
                         <input type="number" id="edit-price" value="${price}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:border-mint focus:outline-none font-mono font-bold" placeholder="0">
                     </div>
                     <div>
@@ -334,6 +341,22 @@ function openStockDrawer(id) {
                              </label>
                         </div>
                         <div id="upload-status" class="text-[10px] font-bold text-mint mt-1 hidden">Subiendo...</div>
+                    </div>
+                </div>
+
+                <!-- Oferta Section -->
+                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-100 mt-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="flex items-center cursor-pointer gap-2">
+                            <input type="checkbox" id="edit-is-offer" class="w-5 h-5 accent-mustard" ${isOffer ? 'checked' : ''} onchange="document.getElementById('offer-price-container').classList.toggle('hidden', !this.checked)">
+                            <span class="text-sm font-bold text-gray-800">¿Es una Oferta?</span>
+                        </label>
+                        <i class="fa-solid fa-tag text-mustard text-xl"></i>
+                    </div>
+                    <div id="offer-price-container" class="${isOffer ? '' : 'hidden'} animate-fade-in-down">
+                        <label class="block text-xs font-bold text-gray-600 mb-1">Precio Promocional ($)</label>
+                        <input type="number" id="edit-offer-price" value="${offerPrice || ''}" class="w-full border-2 border-yellow-200 bg-white p-2 rounded-lg focus:border-mustard focus:outline-none font-mono font-bold text-gray-800" placeholder="Ej: 4000">
+                        <div class="text-[10px] text-gray-400 mt-1 italic">El precio anterior aparecerá tachado.</div>
                     </div>
                 </div>
             </div>
@@ -383,7 +406,7 @@ function openStockDrawer(id) {
         const p = currentInventory.find(x => x.id === id);
         tempVariants = JSON.parse(JSON.stringify(p.variants || []));
         drawerTitle.innerText = 'Editar Producto';
-        drawerBody.innerHTML = renderForm(p.name, p.price, p.image);
+        drawerBody.innerHTML = renderForm(p.name, p.price, p.image, p.isOffer || false, p.offerPrice || 0);
         drawerFooter.innerHTML = `
             <div class="space-y-3">
                 <button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl hover:bg-[#8BCBCB] shadow-lg text-lg">Guardar Cambios</button>
@@ -394,7 +417,8 @@ function openStockDrawer(id) {
         editingId = null;
         tempVariants = [];
         drawerTitle.innerText = 'Nuevo Producto';
-        drawerBody.innerHTML = renderForm('', '', '');
+        // Default offer false
+        drawerBody.innerHTML = renderForm('', '', '', false, 0);
         drawerFooter.innerHTML = `<button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl shadow-lg text-lg">Crear Producto</button>`;
     }
 
@@ -483,13 +507,19 @@ function preSaveCheck() {
 
     requestConfirm(msg, async () => {
         const docId = editingId ? String(editingId) : String(Date.now());
+
+        const isOffer = document.getElementById('edit-is-offer').checked;
+        const offerPrice = isOffer ? (parseInt(document.getElementById('edit-offer-price').value) || 0) : 0;
+
         const newProduct = {
-            id: parseInt(docId), // Keep ID as number for consistency with legacy, but doc name is string
+            id: parseInt(docId),
             name: name,
             price: parseInt(document.getElementById('edit-price').value) || 0,
             image: document.getElementById('edit-image').value,
             category: tempVariants.length > 0 ? tempVariants[0].section : 'General',
-            variants: tempVariants
+            variants: tempVariants,
+            isOffer: isOffer,
+            offerPrice: offerPrice
         };
 
         statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-blue-500"></span> Subiendo...';

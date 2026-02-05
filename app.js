@@ -99,6 +99,7 @@ function loadProducts() {
 
 function init() {
     filterProducts('all');
+    renderOffers(); // Initialize offers
     updateCartUI();
 }
 
@@ -126,16 +127,56 @@ function renderProducts(items) {
         <div class="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div class="relative h-64 overflow-hidden cursor-pointer" onclick="openProductModal(${product.id})">
                 <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
-                <div class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold shadow-sm">
-                    $${product.price.toLocaleString()}
+                <div class="absolute bottom-3 right-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold shadow-sm flex flex-col items-end leading-tight">
+                    ${product.isOffer ? `<span class="text-[10px] text-gray-400 line-through">$${product.price ? product.price.toLocaleString() : '0'}</span><span class="text-red-500">$${product.offerPrice ? product.offerPrice.toLocaleString() : '0'}</span>` : `$${product.price.toLocaleString()}`}
                 </div>
                 ${stockBadge}
+                ${product.isOffer ? '<div class="absolute top-3 left-3 bg-mustard text-white text-xs font-bold px-3 py-1 rounded shadow-sm tracking-wider">OFERTA</div>' : ''}
             </div>
             <div class="p-5 text-center">
                 <h3 class="text-2xl font-bold text-gray-800 mb-1 leading-none font-heading tracking-wide">${product.name}</h3>
                 <p class="text-sm text-gray-500 mb-4">${displayCat} • ${distinctSizes.length} Talles</p>
                 <button onclick="openProductModal(${product.id})" class="w-full py-2 rounded-lg border-2 border-mint text-mint font-bold hover:bg-mint hover:text-white transition-colors">
                     Ver Detalles
+                </button>
+            </div>
+        </div>
+    `}).join('');
+}
+
+// Render Offers Section
+function renderOffers() {
+    const section = document.getElementById('ofertas');
+    const container = document.getElementById('offers-grid');
+
+    // Filter offers
+    const offers = appProducts.filter(p => p.isOffer && (p.variants || []).reduce((a, b) => a + b.stock, 0) > 0);
+
+    if (offers.length === 0) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    section.classList.remove('hidden');
+    // Limit to 4 for the banner
+    const displayOffers = offers.slice(0, 4);
+
+    container.innerHTML = displayOffers.map(p => {
+        const discount = Math.round(((p.price - p.offerPrice) / p.price) * 100);
+        return `
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-yellow-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div class="relative h-48 rounded-xl overflow-hidden mb-4 cursor-pointer" onclick="openProductModal(${p.id})">
+                <img src="${p.image}" class="w-full h-full object-cover">
+                <span class="absolute top-2 right-2 bg-red-500 text-white font-bold text-xs px-2 py-1 rounded-full shadow-sm">-${discount}%</span>
+            </div>
+            <div class="text-center">
+                <h3 class="font-bold text-gray-800 text-lg mb-1 leading-none font-heading">${p.name}</h3>
+                <div class="flex justify-center items-center gap-2 mb-3">
+                    <span class="text-gray-400 line-through text-sm">$${p.price.toLocaleString()}</span>
+                    <span class="text-red-500 font-bold text-xl">$${p.offerPrice.toLocaleString()}</span>
+                </div>
+                <button onclick="openProductModal(${p.id})" class="w-full py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-mustard hover:text-gray-900 transition-colors">
+                    Ver Oferta
                 </button>
             </div>
         </div>
@@ -159,6 +200,8 @@ function filterProducts(category) {
         renderProducts(appProducts);
     } else {
         const filtered = appProducts.filter(p => {
+            if (category === 'Ofertas') return p.isOffer === true;
+
             const variants = p.variants || [];
             const hasVariant = variants.some(v => v.section === category);
             // Handle Legacy Category match if section logic is missing/mixed
@@ -181,7 +224,14 @@ function openProductModal(id) {
 
     modalImg.src = currentProduct.image;
     modalTitle.innerText = currentProduct.name;
-    modalPrice.innerText = `$${currentProduct.price.toLocaleString()}`;
+
+    // Handle Offer Price in Modal
+    if (currentProduct.isOffer) {
+        modalPrice.innerHTML = `<span class="text-gray-400 line-through text-lg mr-2">$${currentProduct.price.toLocaleString()}</span> <span class="text-red-500">$${currentProduct.offerPrice.toLocaleString()}</span>`;
+    } else {
+        modalPrice.innerText = `$${currentProduct.price.toLocaleString()}`;
+    }
+
     modalDesc.innerText = currentProduct.description || (currentProduct.name + ' - Excelente calidad y diseño para los más peques.');
 
     const availableVariants = (currentProduct.variants || []).filter(v => v.stock > 0);
@@ -279,8 +329,9 @@ function addToCart(product, variant) {
         cart.push({
             cartId: cartItemId,
             id: product.id,
+            id: product.id,
             name: product.name,
-            price: product.price,
+            price: product.isOffer ? product.offerPrice : product.price, // Use offer price if applicable
             image: product.image,
             variantStr: `${variant.color} - Talle ${variant.size}`,
             quantity: selectedQty

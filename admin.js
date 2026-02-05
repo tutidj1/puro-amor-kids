@@ -261,8 +261,29 @@ function renderTable() {
     let filtered = currentInventory.filter(p => {
         if (currentCategory === 'Todo') return true;
         if (currentCategory === 'Ofertas') return p.isOffer === true; // Nuevo filtro Ofertas
-        const hasVariantInSection = (p.variants || []).some(v => v.section === currentCategory);
-        const isLegacyMatch = p.category === currentCategory;
+
+        // Normalize helper
+        const normalize = (str) => str ? str.toLowerCase().trim() : '';
+        const target = normalize(currentCategory);
+
+        // Synonym map
+        const synonyms = {
+            'bebés': ['bebes', 'bebe', 'bebé', 'bebe rn', 'recién nacido', 'rn', 'bebés'],
+            'no caminantes': ['no caminantes', 'no caminante'],
+            'niños': ['niños', 'niño', 'ninos', 'nino'],
+            'niñas': ['niñas', 'niña', 'ninas', 'nina']
+        };
+
+        const targetSynonyms = synonyms[target] || [target];
+
+        const hasVariantInSection = (p.variants || []).some(v => {
+            const s = normalize(v.section);
+            return targetSynonyms.some(syn => s.includes(syn) || syn.includes(s));
+        });
+
+        const cat = normalize(p.category);
+        const isLegacyMatch = targetSynonyms.some(syn => cat.includes(syn) || syn.includes(cat));
+
         return hasVariantInSection || isLegacyMatch;
     });
 
@@ -273,9 +294,14 @@ function renderTable() {
     tbody.innerHTML = filtered.map(p => {
         const totalStock = (p.variants || []).reduce((sum, v) => sum + v.stock, 0);
         const stockColor = totalStock === 0 ? 'text-red-500 bg-red-50' : (totalStock < 5 ? 'text-yellow-600 bg-yellow-50' : 'text-green-600 bg-green-50');
-        // Always show Edit pen
-        const actionIcon = '<i class="fa-solid fa-pen"></i>';
-        const actionClass = 'bg-gray-100 text-gray-600';
+
+        let actionIcon = '<i class="fa-solid fa-pen"></i>';
+        let actionClass = 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+
+        if (appMode === 'vender') {
+            actionIcon = '<i class="fa-solid fa-cart-plus"></i>';
+            actionClass = 'bg-mint/10 text-mint hover:bg-mint hover:text-white';
+        }
 
         // Offer Visuals
         const offerBadge = p.isOffer ? '<span class="ml-2 bg-mustard text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Oferta</span>' : '';
@@ -755,19 +781,19 @@ function askToFinalize() {
 }
 expose('askToFinalize', askToFinalize);
 
-function executeSale() {
+async function executeSale() {
     statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-blue-500"></span> Procesando Venta...';
 
     const batch = writeBatch(db);
     const updates = new Map();
 
+    // 1. Prepare updates based on order
     currentOrder.forEach(item => {
         if (!updates.has(item.productId)) {
             updates.set(item.productId, {
                 data: JSON.parse(JSON.stringify(currentInventory.find(p => p.id === item.productId)))
             });
         }
-
         const pData = updates.get(item.productId).data;
         const variant = pData.variants.find(v => v.id == item.variantId);
         if (variant) {
@@ -776,27 +802,31 @@ function executeSale() {
         }
     });
 
+    // 2. Add updates to batch
     updates.forEach((val, key) => {
         const docRef = doc(db, "productos", String(key));
         batch.set(docRef, val.data);
     });
 
-    batch.commit().then(() => {
-        // Local Update
+    try {
+        await batch.commit();
+
+        // 3. Local inventory update
         updates.forEach((val, key) => {
             const idx = currentInventory.findIndex(p => p.id === key);
             if (idx !== -1) currentInventory[idx] = val.data;
         });
 
+        // 4. Save Sale History
         const saleRecord = {
             timestamp: Date.now(),
             total: currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0),
             items: currentOrder,
             dateString: new Date().toLocaleDateString()
         };
+        await addDoc(collection(db, "ventas"), saleRecord);
 
-        addDoc(collection(db, "ventas"), saleRecord).catch(e => console.error("Error saving sale history:", e));
-
+        // 5. Cleanup and Success UI
         currentOrder = [];
         updateMiniCart();
         closeDrawer();
@@ -816,13 +846,107 @@ function executeSale() {
             </button>
         `, null);
 
-    }).catch(err => {
-        console.error("Error finalizing:", err);
+    } catch (e) {
+        console.error("Error executing sale:", e);
         statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Error Venta';
-        alert("Hubo un error al actualizar el stock en la nube.");
-    });
+        alert("Hubo un error al procesar la venta.");
+    }
 }
 expose('executeSale', executeSale);
+
+// --- DATA NORMALIZATION ---
+async function normalizeDatabase(isAutomatic = false) {
+    const runNormalization = async () => {
+        if (!isAutomatic) {
+            statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-purple-500"></span> Normalizando...';
+        }
+
+        const map = {
+            'Bebés': ['bebes', 'bebe', 'bebé', 'bebe rn', 'recién nacido', 'rn', 'bba'],
+            'No caminantes': ['no caminantes', 'no caminante', 'nocaminantes'],
+            'Niños': ['niños', 'niño', 'ninos', 'nino', 'varon'],
+            'Niñas': ['niñas', 'niña', 'ninas', 'nina', 'nena']
+        };
+
+        const getStandard = (val) => {
+            if (!val) return val;
+            const lower = val.toLowerCase().trim();
+            for (const [std, vars] of Object.entries(map)) {
+                if (vars.some(v => lower === v || lower.includes(v))) return std;
+            }
+            return val;
+        };
+
+        let updatedCount = 0;
+        const batch = writeBatch(db);
+        let batchCount = 0;
+
+        currentInventory.forEach(p => {
+            let changed = false;
+            let newCat = getStandard(p.category);
+
+            if (newCat !== p.category) {
+                p.category = newCat;
+                changed = true;
+            }
+
+            if (p.variants) {
+                p.variants.forEach(v => {
+                    let newSec = getStandard(v.section);
+                    if (newSec !== v.section) {
+                        v.section = newSec;
+                        changed = true;
+                    }
+                });
+            }
+
+            if (changed) {
+                const ref = doc(db, "productos", String(p.id));
+                batch.update(ref, { category: p.category, variants: p.variants });
+                updatedCount++;
+                batchCount++;
+            }
+        });
+
+        if (updatedCount === 0) {
+            if (!isAutomatic) {
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Todo en orden';
+                alert('No se encontraron categorías para corregir.');
+            }
+            return;
+        }
+
+        try {
+            await batch.commit();
+            if (!isAutomatic) {
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Datos Normalizados';
+                alert(`Se actualizaron ${updatedCount} productos correctamente.`);
+            } else {
+                console.log(`Auto-Normalización: ${updatedCount} productos corregidos.`);
+            }
+            // Reload to reflect changes locally
+            loadData();
+        } catch (e) {
+            console.error(e);
+            if (!isAutomatic) {
+                statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Error Normalizando';
+                alert('Hubo un error al normalizar.');
+            }
+        }
+    };
+
+    if (isAutomatic) {
+        runNormalization();
+    } else {
+        requestConfirm(`
+            <div class="text-gray-800 font-bold mb-2">¿Normalizar Categorías?</div>
+            <div class="text-sm text-gray-600 mb-2">
+                Esto buscará productos con categorías antiguas y las actualizará al nuevo estándar.
+            </div>
+        `, runNormalization);
+    }
+}
+expose('normalizeDatabase', normalizeDatabase);
 
 function updateMiniCart() {
     const widget = document.getElementById('mini-cart-widget');

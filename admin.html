@@ -76,10 +76,11 @@
             <div id="save-status" class="text-xs font-bold text-gray-500 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-green-500"></span> Guardado
             </div>
-            <div id="stock-actions">
+            <div id="stock-actions" class="flex items-center gap-3">
+                <!-- Normalize was here, now automatic -->
                 <button onclick="document.getElementById('import-modal').classList.remove('hidden')"
-                    class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-bold hover:bg-gray-200 transition text-sm mr-2">
-                    <i class="fa-solid fa-file-csv mr-2"></i> Importar CSV
+                    class="bg-gray-100 text-gray-600 px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition">
+                    <i class="fa-solid fa-file-csv mr-1"></i> Importar CSV
                 </button>
                 <button onclick="openStockDrawer(null)"
                     class="bg-mint text-white px-4 py-2 rounded-lg font-bold hover:brightness-110 transition text-sm">
@@ -130,7 +131,7 @@
                         data-cat="No caminantes">No caminantes</button>
                     <button onclick="filterCategory('Bebés')"
                         class="cat-tab pb-3 text-lg font-bold text-gray-400 hover:text-gray-600 border-b-4 border-transparent"
-                        data-cat="Bebés">Bebes RN</button>
+                        data-cat="Bebés">Bebés</button>
                     <button onclick="filterCategory('Ofertas')"
                         class="cat-tab pb-3 text-lg font-bold text-mustard hover:text-yellow-600 border-b-4 border-transparent"
                         data-cat="Ofertas"><i class="fa-solid fa-tag mr-1"></i>Ofertas</button>
@@ -263,9 +264,9 @@
 
         <!-- Import CSV Modal -->
         <div id="import-modal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl relative">
+            <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
                 <button onclick="document.getElementById('import-modal').classList.add('hidden')"
-                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10">
                     <i class="fa-solid fa-times text-xl"></i>
                 </button>
 
@@ -302,7 +303,8 @@
 
         <!-- Confirm Modal -->
         <div id="confirm-modal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl scale-100 transition-transform">
+            <div
+                class="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl scale-100 transition-transform max-h-[90vh] overflow-y-auto">
                 <div class="text-center mb-4">
                     <div
                         class="w-16 h-16 bg-yellow-100 text-mustard rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">

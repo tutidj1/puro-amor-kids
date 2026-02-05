@@ -99,7 +99,8 @@ btnCargar.addEventListener('click', async () => {
                         name: cleanName,
                         price: Number(price) || 0,
                         image: image ? String(image).trim() : 'https://via.placeholder.com/150',
-                        category: category ? String(category).trim() : 'General',
+                        image: image ? String(image).trim() : 'https://via.placeholder.com/150',
+                        category: getStandardCategory(category),
                         variantsMap: new Map() // Usamos un mapa interno para agrupar variantes y contar stock
                     });
                 }
@@ -107,7 +108,6 @@ btnCargar.addEventListener('click', async () => {
                 const product = productsMap.get(cleanName);
 
                 // 2. Manejar Variante (Conteo de Stock)
-                // Si la variante ya existe, sumamos 1 al stock. Si no, la creamos con stock 1.
                 if (product.variantsMap.has(variantKey)) {
                     product.variantsMap.get(variantKey).stock += 1;
                 } else {
@@ -115,7 +115,7 @@ btnCargar.addEventListener('click', async () => {
                         id: Date.now() + Math.random(),
                         color: String(color || 'Único').trim(),
                         size: String(size || 'U').trim(),
-                        section: String(category || product.category).trim(),
+                        section: getStandardCategory(category || product.category),
                         stock: 1 // Primera aparición cuenta como 1
                     });
                 }
@@ -153,11 +153,17 @@ btnCargar.addEventListener('click', async () => {
                 console.log(`Subiendo ${productsToUpload.length} productos...`);
                 await uploadToFirestore(productsToUpload);
                 setLoading(false);
-                setStatus(`¡Éxito! Procesados ${processedCount} registros. Creados ${productsToUpload.length} productos con sus variantes y stock calculado.`, "success");
+                setStatus(`¡Éxito! Procesados ${processedCount} registros. Creados ${productsToUpload.length} productos con sus variantes.`, "success");
+
+                // Trigger Auto-Normalization
+                if (window.normalizeDatabase) {
+                    console.log("Iniciando normalización automática...");
+                    window.normalizeDatabase(true);
+                }
 
                 setTimeout(() => {
                     location.reload();
-                }, 3000);
+                }, 2000);
 
             } catch (error) {
                 console.error("Error subiendo a Firebase:", error);
@@ -230,4 +236,24 @@ function setStatus(msg, type) {
     } else {
         statusDiv.classList.add('text-gray-500');
     }
+}
+
+function getStandardCategory(input) {
+    if (!input) return 'General';
+    const lower = String(input).toLowerCase().trim();
+
+    const map = {
+        'Bebés': ['bebes', 'bebe', 'bebé', 'bebe rn', 'recién nacido', 'rn', 'bba'],
+        'No caminantes': ['no caminantes', 'no caminante', 'nocaminantes'],
+        'Niños': ['niños', 'niño', 'ninos', 'nino', 'varon'],
+        'Niñas': ['niñas', 'niña', 'ninas', 'nina', 'nena']
+    };
+
+    for (const [standard, variations] of Object.entries(map)) {
+        if (variations.some(v => lower.includes(v))) {
+            return standard;
+        }
+    }
+    // Si no matchea nada específico, devolvemos el original prolijo
+    return input.charAt(0).toUpperCase() + input.slice(1).toLowerCase();
 }

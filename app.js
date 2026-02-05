@@ -206,9 +206,30 @@ function filterProducts(category) {
             if (category === 'Ofertas') return p.isOffer === true;
 
             const variants = p.variants || [];
-            const hasVariant = variants.some(v => v.section === category);
-            // Handle Legacy Category match if section logic is missing/mixed
-            const isLegacyMatch = p.category === category;
+
+            // Normalize helper
+            const normalize = (str) => str ? str.toLowerCase().trim() : '';
+            const target = normalize(category);
+
+            // Synonym map
+            const synonyms = {
+                'bebés': ['bebes', 'bebe', 'bebé', 'bebe rn', 'recién nacido', 'rn', 'bebés'],
+                'no caminantes': ['no caminantes', 'no caminante'],
+                'niños': ['niños', 'niño', 'ninos', 'nino'],
+                'niñas': ['niñas', 'niña', 'ninas', 'nina']
+            };
+
+            const targetSynonyms = synonyms[target] || [target];
+
+            const hasVariant = variants.some(v => {
+                const s = normalize(v.section);
+                return targetSynonyms.some(syn => s.includes(syn) || syn.includes(s));
+            });
+
+            // Handle Legacy Category match
+            const cat = normalize(p.category);
+            const isLegacyMatch = targetSynonyms.some(syn => cat.includes(syn) || syn.includes(cat));
+
             return hasVariant || isLegacyMatch;
         });
         renderProducts(filtered);

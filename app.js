@@ -148,16 +148,19 @@ function renderProducts(items) {
 function renderOffers() {
     const section = document.getElementById('ofertas');
     const container = document.getElementById('offers-grid');
+    const navLink = document.getElementById('nav-ofertas');
 
     // Filter offers
     const offers = appProducts.filter(p => p.isOffer && (p.variants || []).reduce((a, b) => a + b.stock, 0) > 0);
 
     if (offers.length === 0) {
         section.classList.add('hidden');
+        if (navLink) navLink.classList.add('hidden');
         return;
     }
 
     section.classList.remove('hidden');
+    if (navLink) navLink.classList.remove('hidden');
     // Limit to 4 for the banner
     const displayOffers = offers.slice(0, 4);
 

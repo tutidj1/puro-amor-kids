@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="img/Logo.jpeg">
     <title>Puro Amor Kidss | Ropa de Diseño para Bebés</title>
 
     <!-- Tailwind CSS -->
@@ -71,28 +72,26 @@
 
     <!-- Navbar -->
     <nav class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center relative">
             <!-- Mobile Menu Button -->
             <button class="md:hidden text-2xl text-gray-600"><i class="fa-solid fa-bars"></i></button>
 
             <!-- Logo -->
             <div class="flex items-center gap-2 mx-auto md:mx-0">
                 <div
-                    class="w-10 h-10 bg-mint rounded-full flex items-center justify-center text-white font-heading font-bold text-xl border-2 border-dashed border-mustard overflow-hidden">
-                    <img src="https://via.placeholder.com/50/9CD3D3/FFFFFF?text=PA" alt="Logo"
-                        class="object-cover w-full h-full opacity-80">
+                    class="w-12 h-12 bg-white rounded-full flex items-center justify-center border-2 border-mustard overflow-hidden shadow-sm">
+                    <img src="img/Logo.jpeg" alt="Puro Amor Kidss" class="object-cover w-full h-full">
                 </div>
                 <span class="font-heading text-3xl font-bold tracking-wide text-gray-700">Puro Amor <span
                         class="text-mint">Kidss</span></span>
             </div>
 
             <!-- Desktop Menu -->
-            <div class="hidden md:flex gap-8 text-lg font-bold text-gray-500">
+            <div class="hidden md:flex gap-8 text-lg font-bold text-gray-500 absolute left-1/2 -translate-x-1/2">
                 <a href="#" class="hover:text-mint transition-colors">Inicio</a>
+                <a href="#ofertas" id="nav-ofertas" class="hover:text-mint transition-colors">Oferta</a>
                 <a href="#catalogo" class="hover:text-mint transition-colors">Ropa</a>
                 <a href="#contacto" class="hover:text-mint transition-colors">Contacto</a>
-                <!-- Hidden Admin Link -->
-                <!-- <a href="admin.html" class="text-xs text-gray-300 hover:text-gray-400 self-center">Admin</a> -->
             </div>
 
             <!-- Cart Icon -->
@@ -128,7 +127,7 @@
     </header>
 
     <!-- Offers Section -->
-    <section id="ofertas" class="py-16 bg-mustard/10 relative overflow-hidden hidden">
+    <section id="ofertas" class="py-16 bg-mustard/10 relative overflow-hidden">
         <!-- Decoration -->
         <div
             class="absolute top-0 right-0 w-64 h-64 bg-mustard/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2">
@@ -203,9 +202,6 @@
                 <a href="#" class="hover:text-mint transition-colors"><i class="fa-brands fa-whatsapp"></i></a>
             </div>
             <p class="text-gray-400 text-sm">© 2026 Puro Amor. Hecho con ❤️ para los más peques.</p>
-            <div class="mt-4">
-                <a href="admin.html" class="text-gray-600 text-xs hover:text-gray-400">Acceso Admin</a>
-            </div>
         </div>
     </footer>
 

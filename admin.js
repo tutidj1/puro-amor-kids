@@ -344,7 +344,7 @@ expose('itemClick', itemClick);
 // --- STOCK DRAWER ---
 function openStockDrawer(id) {
     editingId = id;
-    const renderForm = (name, price, image, isOffer, offerPrice) => `
+    const renderForm = (name, price, image, isOffer, offerPrice, costPrice, markup) => `
         <div class="space-y-6">
             <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4">
                 <h3 class="text-xs font-bold uppercase text-gray-400">Datos Principales</h3>
@@ -352,11 +352,24 @@ function openStockDrawer(id) {
                     <label class="block text-sm font-bold text-gray-700 mb-1">Nombre de la Prenda</label>
                     <input type="text" id="edit-name" value="${name}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:bg-white focus:outline-none focus:border-mint font-bold text-gray-800 text-lg placeholder-gray-300" placeholder="Ej: Body Rayado">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
+                
+                <!-- NEW: Cost / Markup / Final Price Grid -->
+                <div class="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Precio Real ($)</label>
-                        <input type="number" id="edit-price" value="${price}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:border-mint focus:outline-none font-mono font-bold" placeholder="0">
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Costo ($)</label>
+                        <input type="number" id="edit-cost" value="${costPrice || ''}" oninput="calcPrice()" class="w-full border p-2 rounded text-sm font-mono text-gray-600 focus:outline-none focus:border-mint" placeholder="0">
                     </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 mb-1">Recargo (0.X)</label>
+                        <input type="number" id="edit-markup" value="${markup || ''}" oninput="calcPrice()" class="w-full border p-2 rounded text-sm font-mono text-gray-600 focus:outline-none focus:border-mint" placeholder="0.5">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-mint mb-1">Precio Final ($)</label>
+                        <input type="number" id="edit-price" value="${price}" class="w-full border-2 border-mint bg-white p-2 rounded-lg focus:outline-none font-mono font-bold text-lg text-gray-900" placeholder="0">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Imagen (URL)</label>
                         <div class="flex gap-2">
@@ -432,7 +445,8 @@ function openStockDrawer(id) {
         const p = currentInventory.find(x => x.id === id);
         tempVariants = JSON.parse(JSON.stringify(p.variants || []));
         drawerTitle.innerText = 'Editar Producto';
-        drawerBody.innerHTML = renderForm(p.name, p.price, p.image, p.isOffer || false, p.offerPrice || 0);
+        // Pass existing cost/markup or 0
+        drawerBody.innerHTML = renderForm(p.name, p.price, p.image, p.isOffer || false, p.offerPrice || 0, p.costPrice || 0, p.markupPercentage || 0);
         drawerFooter.innerHTML = `
             <div class="space-y-3">
                 <button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl hover:bg-[#8BCBCB] shadow-lg text-lg">Guardar Cambios</button>
@@ -443,8 +457,8 @@ function openStockDrawer(id) {
         editingId = null;
         tempVariants = [];
         drawerTitle.innerText = 'Nuevo Producto';
-        // Default offer false
-        drawerBody.innerHTML = renderForm('', '', '', false, 0);
+        // Default 0
+        drawerBody.innerHTML = renderForm('', '', '', false, 0, 0, 0);
         drawerFooter.innerHTML = `<button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl shadow-lg text-lg">Crear Producto</button>`;
     }
 
@@ -452,6 +466,19 @@ function openStockDrawer(id) {
     openDrawerAnimation();
 }
 expose('openStockDrawer', openStockDrawer);
+
+// --- Price Calc Helper ---
+function calcPrice() {
+    const cost = parseFloat(document.getElementById('edit-cost').value) || 0;
+    const markup = parseFloat(document.getElementById('edit-markup').value) || 0;
+
+    if (cost > 0 && markup > 0) {
+        const final = cost * (1 + markup);
+        // Round to nearest 10 for neatness, or keep raw
+        document.getElementById('edit-price').value = Math.ceil(final / 10) * 10;
+    }
+}
+expose('calcPrice', calcPrice);
 
 function renderStockVariants() {
     const list = document.getElementById('variants-list');
@@ -537,10 +564,16 @@ function preSaveCheck() {
         const isOffer = document.getElementById('edit-is-offer').checked;
         const offerPrice = isOffer ? (parseInt(document.getElementById('edit-offer-price').value) || 0) : 0;
 
+        // Grab new fields
+        const costPrice = parseFloat(document.getElementById('edit-cost').value) || 0;
+        const markupPercentage = parseFloat(document.getElementById('edit-markup').value) || 0;
+
         const newProduct = {
             id: parseInt(docId),
             name: name,
             price: parseInt(document.getElementById('edit-price').value) || 0,
+            costPrice: costPrice,       // Saved
+            markupPercentage: markupPercentage, // Saved
             image: document.getElementById('edit-image').value,
             category: tempVariants.length > 0 ? tempVariants[0].section : 'General',
             variants: tempVariants,

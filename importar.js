@@ -137,6 +137,8 @@ btnCargar.addEventListener('click', async () => {
                     id: p.id,
                     name: p.name,
                     price: p.price,
+                    costPrice: p.costPrice,
+                    markupPercentage: p.markupPercentage,
                     image: p.image,
                     category: p.category,
                     variants: finalVariants

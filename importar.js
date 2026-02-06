@@ -80,6 +80,19 @@ btnCargar.addEventListener('click', async () => {
                 const image = getVal(['nombre del archivo imagen', 'imagen', 'foto', 'archivo']);
                 const category = getVal(['categoria', 'categoría', 'seccion']);
 
+                // Nuevos valores Costo y Recargo (Soportando 0,5 o 0.5)
+                let costPriceRaw = getVal(['costo', 'cost', 'precio costo', 'cost price']);
+                let markupRaw = getVal(['recargo', 'markup', '% recargo', 'porcentaje recargo']);
+
+                const parseDecimal = (val) => {
+                    if (typeof val === 'number') return val;
+                    if (!val) return 0;
+                    return parseFloat(String(val).replace(',', '.')) || 0;
+                };
+
+                const costPrice = parseDecimal(costPriceRaw);
+                const markupPercentage = parseDecimal(markupRaw);
+
                 // Variantes
                 const size = getVal(['talle', 'talla']);
                 const color = getVal(['color']);

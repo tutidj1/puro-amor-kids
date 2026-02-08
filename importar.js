@@ -82,7 +82,7 @@ btnCargar.addEventListener('click', async () => {
 
                 // Nuevos valores Costo y Recargo (Soportando 0,5 o 0.5)
                 let costPriceRaw = getVal(['costo', 'cost', 'precio costo', 'cost price']);
-                let markupRaw = getVal(['recargo', 'markup', '% recargo', 'porcentaje recargo']);
+                let markupRaw = getVal(['recargo', 'markup', '% recargo', 'porcentaje recargo', 'ganancia']);
 
                 const parseDecimal = (val) => {
                     if (typeof val === 'number') return val;
@@ -92,6 +92,15 @@ btnCargar.addEventListener('click', async () => {
 
                 const costPrice = parseDecimal(costPriceRaw);
                 const markupPercentage = parseDecimal(markupRaw);
+
+                // CÁLCULO DE PRECIO AUTOMÁTICO
+                // Si hay costo y recargo, el precio se calcula. Si no, se usa la columna precio.
+                let finalPrice = Number(price) || 0;
+                if (costPrice > 0 && markupPercentage > 0) {
+                    finalPrice = costPrice * (1 + markupPercentage);
+                    // Redondear a decena
+                    finalPrice = Math.ceil(finalPrice / 10) * 10;
+                }
 
                 // Variantes
                 const size = getVal(['talle', 'talla']);
@@ -110,8 +119,9 @@ btnCargar.addEventListener('click', async () => {
                     productsMap.set(cleanName, {
                         id: Date.now() + index, // ID único
                         name: cleanName,
-                        price: Number(price) || 0,
-                        image: image ? String(image).trim() : 'https://via.placeholder.com/150',
+                        price: finalPrice, // Usamos el precio calculado
+                        costPrice: costPrice,
+                        markupPercentage: markupPercentage,
                         image: image ? String(image).trim() : 'https://via.placeholder.com/150',
                         category: getStandardCategory(category),
                         variantsMap: new Map() // Usamos un mapa interno para agrupar variantes y contar stock

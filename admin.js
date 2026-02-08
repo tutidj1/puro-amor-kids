@@ -1,6 +1,6 @@
 // Importar Firestore y Config
 import { db, storage } from './firebase-config.js';
-import { collection, doc, setDoc, deleteDoc, writeBatch, onSnapshot, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, doc, setDoc, deleteDoc, writeBatch, onSnapshot, addDoc, query, orderBy, limit, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
 // State
@@ -817,53 +817,99 @@ expose('askToFinalize', askToFinalize);
 async function executeSale() {
     statusEl.innerHTML = '<span class="animate-pulse w-2 h-2 rounded-full bg-blue-500"></span> Procesando Venta...';
 
-    const batch = writeBatch(db);
-    const updates = new Map();
-
-    // 1. Prepare updates based on order
-    currentOrder.forEach(item => {
-        if (!updates.has(item.productId)) {
-            updates.set(item.productId, {
-                data: JSON.parse(JSON.stringify(currentInventory.find(p => p.id === item.productId)))
-            });
-        }
-        const pData = updates.get(item.productId).data;
-        const variant = pData.variants.find(v => v.id == item.variantId);
-        if (variant) {
-            variant.stock -= item.qty;
-            if (variant.stock < 0) variant.stock = 0;
-        }
-    });
-
-    // 2. Add updates to batch
-    updates.forEach((val, key) => {
-        const docRef = doc(db, "productos", String(key));
-        batch.set(docRef, val.data);
-    });
-
+    // We use a transaction to ensure we don't overwrite web sales with stale local data
     try {
-        await batch.commit();
+        await runTransaction(db, async (transaction) => {
+            // 1. Identify distinct products to read
+            const productIds = [...new Set(currentOrder.map(i => i.productId))];
 
-        // 3. Local inventory update
-        updates.forEach((val, key) => {
-            const idx = currentInventory.findIndex(p => p.id === key);
-            if (idx !== -1) currentInventory[idx] = val.data;
+            const reads = productIds.map(pid => {
+                const ref = doc(db, "productos", String(pid));
+                return transaction.get(ref);
+            });
+
+            const docsSnapshot = await Promise.all(reads);
+            const docsMap = new Map();
+            docsSnapshot.forEach(docSnap => {
+                if (docSnap.exists()) {
+                    docsMap.set(docSnap.id, docSnap.data());
+                }
+            });
+
+            // 2. Apply subtractions
+            currentOrder.forEach(item => {
+                let pidStr = String(item.productId);
+                let productData = docsMap.get(pidStr);
+
+                // Fallback: If ID not found, try to find by Name in the loaded docs
+                // (Note: This only works if we read ALL potential candidates, but we only read by ID above.
+                // So strictly, in Admin, we rely on the fact that we just read what we asked for.
+                // If the ID changed, we wouldn't have read the NEW ID. 
+                // However, since Admin uses 'currentInventory' (which is live), 
+                // we should probably re-validate 'currentOrder' against 'currentInventory' BEFORE transaction.)
+
+                if (!productData) {
+                    // Try to recover from currentInventory (which is updated via Snapshot)
+                    // This handles the case where ID changed mid-operation
+                    const liveProduct = currentInventory.find(p => p.name === item.name);
+                    if (liveProduct) {
+                        // We need to read this NEW doc if we haven't
+                        // But we can't await inside forEach easily without refactoring.
+                        // simpler: Throw specific error asking to refresh, OR relying on the Fact 
+                        // that if we are here, likely the read failed.
+                        throw new Error(`Producto ${item.name} cambió de ID. Por favor re-ingresa el ítem a la venta.`);
+                    }
+                    throw new Error(`Producto ${item.name} no encontrado en DB.`);
+                }
+
+                if (!productData.variants) productData.variants = [];
+
+                let variant = productData.variants.find(v => v.id == item.variantId);
+
+                // Fallback for Variant by Color/Size
+                if (!variant) {
+                    variant = productData.variants.find(v =>
+                        v.color.toLowerCase() === item.color.toLowerCase() &&
+                        String(v.size) === String(item.size)
+                    );
+                }
+
+                if (!variant) {
+                    throw new Error(`Variante ${item.color}-${item.size} de ${item.name} no encontrada.`);
+                }
+
+                // In Admin, we might allow going negative? Or strict? 
+                // Let's stick to strict for consistency, or just warn.
+                // Plan said: "Decrement stock."
+                variant.stock -= item.qty;
+                if (variant.stock < 0) variant.stock = 0; // Prevent negative for now
+            });
+
+            // 3. Queue Updates
+            docsMap.forEach((data, pid) => {
+                const ref = doc(db, "productos", String(pid));
+                transaction.update(ref, { variants: data.variants });
+            });
         });
 
-        // 4. Save Sale History
+        // 4. Save Sale History (Post-transaction)
         const saleRecord = {
             timestamp: Date.now(),
             total: currentOrder.reduce((acc, i) => acc + (i.price * i.qty), 0),
             items: currentOrder,
-            dateString: new Date().toLocaleDateString()
+            dateString: new Date().toLocaleDateString(),
+            channel: 'local'
         };
         await addDoc(collection(db, "ventas"), saleRecord);
 
-        // 5. Cleanup and Success UI
+        // 5. Cleanup
         currentOrder = [];
         updateMiniCart();
         closeDrawer();
-        renderTable();
+        // We don't need to manually update currentInventory because onSnapshot will trigger
+        // But for immediate UI feedback we call renderTable (it will show old data until snapshot arrives, usually ms)
+        // Better wait for snapshot? 
+        // statusEl update is enough.
 
         statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Venta Exitosa';
 
@@ -873,8 +919,8 @@ async function executeSale() {
         requestConfirm(`
             <div class="text-green-500 text-5xl mb-4"><i class="fa-solid fa-check-circle"></i></div>
             <div class="text-gray-800 font-bold text-xl">¡Venta Registrada!</div>
-            <div class="text-gray-500 text-sm mt-2 mb-4">Stock descontado en la nube.</div>
-            <button onclick="closeConfirm(false); renderTable(); switchAppMode('registro');" class="w-full bg-gray-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-black transition">
+            <div class="text-gray-500 text-sm mt-2 mb-4">Stock actualizado en la nube.</div>
+            <button onclick="closeConfirm(false); switchAppMode('registro');" class="w-full bg-gray-900 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-black transition">
                 Aceptar
             </button>
         `, null);
@@ -882,7 +928,7 @@ async function executeSale() {
     } catch (e) {
         console.error("Error executing sale:", e);
         statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Error Venta';
-        alert("Hubo un error al procesar la venta.");
+        alert("Error: " + e.message);
     }
 }
 expose('executeSale', executeSale);

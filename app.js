@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, onSnapshot, writeBatch, doc, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, onSnapshot, writeBatch, doc, addDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // State
 let cart = JSON.parse(localStorage.getItem('puroamor_cart')) || [];
@@ -777,6 +777,7 @@ async function processPayment() {
 expose('processPayment', processPayment);
 
 // Core Logic to Finalize Order
+// Core Logic to Finalize Order
 async function finishOrder(success, paymentId, userData) {
     const payBtn = document.getElementById('pay-btn');
 
@@ -785,52 +786,168 @@ async function finishOrder(success, paymentId, userData) {
         return;
     }
 
-    // 1. Handle Stock & Firestore
-    const batch = writeBatch(db);
-    const orderItems = [];
-    let stockError = null;
-
-    cart.forEach(cartItem => {
-        const product = appProducts.find(p => p.id === cartItem.id);
-        if (!product) { stockError = `${cartItem.name} ya no existe`; return; }
-
-        const variantId = parseInt(cartItem.cartId.split('-')[1]);
-        const variant = product.variants.find(v => v.id === variantId);
-
-        if (!variant) { stockError = `Variante de ${cartItem.name} no encontrada`; return; }
-        if (variant.stock < cartItem.quantity) { stockError = `Stock insuficiente para ${cartItem.name} (${variant.color})`; return; }
-
-        variant.stock -= cartItem.quantity;
-
-        orderItems.push({
-            productId: product.id,
-            variantId: variant.id,
-            name: product.name,
-            color: variant.color,
-            size: variant.size,
-            qty: cartItem.quantity,
-            price: cartItem.price
-        });
-    });
-
-    if (stockError) {
-        alert("Error de Stock: " + stockError);
-        return;
-    }
-
-    // Commit Stock Changes
-    const involvedProductIds = [...new Set(cart.map(i => i.id))];
-    involvedProductIds.forEach(pid => {
-        const p = appProducts.find(prod => prod.id === pid);
-        const ref = doc(db, "productos", String(pid));
-        batch.set(ref, p);
-    });
-
     try {
-        await batch.commit();
-        console.log("Stock actualizado.");
+        const orderItems = [];
 
-        // 2. Register Sale
+        // --- HEALING STEP: Fix Stale IDs ---
+        // If the admin re-created products, the Cart IDs might be old.
+        // We check against 'appProducts' (which is real-time) and update Cart IDs if we find a Name match.
+        cart.forEach(item => {
+            const currentP = appProducts.find(p => String(p.id) === String(item.id));
+            if (!currentP) {
+                // ID not found, search by Name
+                const matchByName = appProducts.find(p => p.name.trim().toLowerCase() === item.name.trim().toLowerCase());
+                if (matchByName) {
+                    console.log(`Healing Cart Item: "${item.name}" ID ${item.id} -> ${matchByName.id}`);
+                    item.id = matchByName.id; // Update Product ID
+
+                    // Also try to heal Variant ID
+                    const oldVarId = parseInt(item.cartId.split('-')[1]);
+                    // Try to find variant by Color/Size in the NEW product
+                    const matchVar = matchByName.variants.find(v => v.color.toLowerCase() === item.variantStr.split('-')[0].trim().toLowerCase() && v.size.toString() === item.variantStr.split('-')[1].trim());
+
+                    if (matchVar) {
+                        item.cartId = `${matchByName.id}-${matchVar.id}`; // Update Cart ID reference
+                        // item.variantId = matchVar.id; // If we used a direct property
+                    }
+                }
+            }
+        });
+        saveCart(); // Persist healed IDs
+        updateCartUI(); // Visual refresh just in case
+
+        await runTransaction(db, async (transaction) => {
+            orderItems.length = 0; // Clear for retry
+
+            // 1. Read all product docs involved by ID
+            const involvedProductIds = [...new Set(cart.map(i => i.id))];
+
+            // First attempt: Direct ID lookup
+            const idReads = involvedProductIds.map(pid => {
+                const ref = doc(db, "productos", String(pid));
+                return transaction.get(ref);
+            });
+
+            const idSnapshots = await Promise.all(idReads);
+            const docsMap = new Map();
+
+            // Populate map with found docs
+            idSnapshots.forEach(docSnap => {
+                if (docSnap.exists()) {
+                    docsMap.set(String(docSnap.id), docSnap.data());
+                }
+            });
+
+            // 2. Second attempt: Query by Name for missing items
+            // This handles the case where products were re-uploaded and have new IDs
+            const missingItems = cart.filter(item => !docsMap.has(String(item.id)));
+            // Deduplicate names to query
+            const missingNames = [...new Set(missingItems.map(i => i.name.trim()))];
+
+            if (missingNames.length > 0) {
+                console.warn("Items missing by ID in Transaction, attempting Name Query:", missingNames);
+                const queryReads = missingNames.map(name => {
+                    const q = query(collection(db, "productos"), where("name", "==", name));
+                    return transaction.get(q);
+                });
+
+                const querySnapshots = await Promise.all(queryReads);
+
+                querySnapshots.forEach(qSnap => {
+                    if (!qSnap.empty) {
+                        // Take the first match
+                        const docSnap = qSnap.docs[0];
+                        docsMap.set(String(docSnap.id), docSnap.data());
+                    }
+                });
+            }
+
+            // Helper to get doc by ID or Name
+            const getDocData = (item) => {
+                // Try ID
+                if (docsMap.has(String(item.id))) return docsMap.get(String(item.id));
+
+                // Try Name (iterate map values? slow but safe for small carts)
+                for (const d of docsMap.values()) {
+                    if (d.name.trim().toLowerCase() === item.name.trim().toLowerCase()) {
+                        return d; // Found by name match
+                    }
+                }
+                return null;
+            };
+
+            // 3. Validate Cart against Fresh Data
+            for (const cartItem of cart) {
+                const productData = getDocData(cartItem);
+
+                if (!productData) {
+                    throw new Error(`El producto "${cartItem.name}" ya no existe en el sistema (ID ni Nombre).`);
+                }
+
+                // If we found it by name (ID changed), let's heal the cart item ID for the Sale Record
+                if (String(cartItem.id) !== String(productData.id)) {
+                    console.log(`Transaction Healing: Linked "${cartItem.name}" to new ID ${productData.id}`);
+                    cartItem.id = productData.id;
+                }
+
+                // CRITICAL FIX: Use Number() instead of parseInt() because IDs might be floats (Date.now() + Math.random())
+                const variantId = Number(cartItem.cartId.split('-')[1]);
+
+                if (!productData.variants) productData.variants = [];
+
+                // Flexible Variant Lookup: ID first, then Name/Size fallback
+                let variant = productData.variants.find(v => v.id == variantId);
+
+                if (!variant) {
+                    // Fallback: Try matching by attributes (Color & Size)
+                    // We parse "Color - Size" from cartItem.variantStr e.g. "Rojo - Talle M"
+                    const parts = cartItem.variantStr.split('-');
+                    if (parts.length >= 2) {
+                        const cColor = parts[0].trim().toLowerCase();
+                        // Remove "Talle" or "Talla" prefix to get raw size (e.g. "Talle M" -> "M")
+                        let cSize = parts[1].replace(/talle|talla/gi, '').trim();
+
+                        variant = productData.variants.find(v =>
+                            v.color.trim().toLowerCase() === cColor &&
+                            String(v.size).trim().toLowerCase() === cSize.toLowerCase()
+                        );
+                    }
+                }
+
+                if (!variant) {
+                    throw new Error(`La variante "${cartItem.variantStr}" de "${cartItem.name}" ya no existe.`);
+                }
+
+                if (variant.stock < cartItem.quantity) {
+                    throw new Error(`Stock insuficiente para "${cartItem.name}" (${variant.color}). Disponibles: ${variant.stock}`);
+                }
+
+                // 3. Deduct Stock
+                variant.stock -= cartItem.quantity;
+
+                // Prepare item for sale record
+                orderItems.push({
+                    productId: productData.id,
+                    variantId: variant.id, // Keep ID
+                    name: productData.name,
+                    color: variant.color,
+                    size: variant.size,
+                    qty: cartItem.quantity,
+                    price: cartItem.price
+                });
+            }
+
+            // 4. Write updates
+            docsMap.forEach((data, pid) => {
+                const ref = doc(db, "productos", String(pid));
+                transaction.update(ref, { variants: data.variants });
+            });
+        });
+
+        console.log("Transacción de stock exitosa.");
+
+        // 5. Register Sale (Post-Transaction)
+        // We do this AFTER transaction success to avoid phantom sales if stock fails
         const total = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
         const saleRecord = {
             timestamp: Date.now(),
@@ -844,25 +961,20 @@ async function finishOrder(success, paymentId, userData) {
         };
         await addDoc(collection(db, "ventas"), saleRecord);
 
-        // 3. Success UI
-        showStatus(true); // Popup de agradecimiento
+        // 6. Success UI
+        showStatus(true);
 
-        // 4. Automatic WhatsApp Notification
-        const ownerPhone = "5491100000000"; // Reemplazar con el número real
+        // 7. WhatsApp
+        const ownerPhone = "5491100000000";
         const address = userData['direccion'] || 'Retiro en Local';
         const clientName = userData['nombre'] || 'Cliente';
         const phone = userData['telefono'] || '-';
 
         let itemsList = orderItems.map(i => `- ${i.name} (${i.color} ${i.size}) x${i.qty}`).join('\n');
-
         const msg = encodeURIComponent(`*¡Nueva Venta Web!* 🎉\n\n👤 *Cliente:* ${clientName}\n📞 *Tel:* ${phone}\n📍 *Dirección:* ${address}\n\n🛒 *Pedido:*\n${itemsList}\n\n💰 *Total:* $${total.toLocaleString()}\n\n_Pago vía Mercado Pago (${paymentId})_`);
-
         const waUrl = `https://wa.me/${ownerPhone}?text=${msg}`;
 
-        // Intentar abrir automáticamente
         const waWindow = window.open(waUrl, '_blank');
-
-        // Fallback si el navegador bloquea el popup
         const statusMsg = document.getElementById('status-msg');
         if (!waWindow) {
             statusMsg.innerHTML += `<br><br><span class="text-xs text-red-400">(El navegador bloqueó la alerta automática)</span><br><a href="${waUrl}" target="_blank" class="text-green-500 font-bold underline text-lg"><i class="fa-brands fa-whatsapp"></i> Enviar Alerta a Dueña</a>`;
@@ -872,11 +984,15 @@ async function finishOrder(success, paymentId, userData) {
 
     } catch (error) {
         console.error("Error processing order:", error);
-        alert("Hubo un error crítico al guardar el pedido. Contacta a soporte.");
+        // Show specific error to user using our helper
+        const isKnownError = error.message.includes('stock') || error.message.includes('producto') || error.message.includes('variante') || error.message.includes('Debug');
+        const userMsg = isKnownError ? error.message : "Ocurrió un error al procesar el stock. Por favor intenta nuevamente.";
+
+        showStatus(false, userMsg);
     }
 }
 
-function showStatus(success) {
+function showStatus(success, customMsg = null) {
     const overlay = document.getElementById('checkout-status');
     const icon = document.getElementById('status-icon');
     const title = document.getElementById('status-title');
@@ -896,8 +1012,8 @@ function showStatus(success) {
         updateCartUI();
     } else {
         icon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-500"></i>';
-        title.innerText = 'Pago Rechazado';
-        msg.innerText = 'Hubo un problema con tu método de pago. Por favor intenta nuevamente.';
+        title.innerText = 'No se pudo completar';
+        msg.innerText = customMsg || 'Hubo un problema con tu método de pago. Por favor intenta nuevamente.';
     }
 
     // Animations

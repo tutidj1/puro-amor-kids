@@ -78,6 +78,10 @@
             </div>
             <div id="stock-actions" class="flex items-center gap-3">
                 <!-- Normalize was here, now automatic -->
+                <button onclick="toggleGlobalOffers()" id="btn-global-offers"
+                    class="bg-gray-700 text-gray-400 px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-600 transition border border-gray-600 flex items-center gap-2">
+                    <i class="fa-solid fa-eye-slash"></i> Ofertas: OFF
+                </button>
                 <button onclick="document.getElementById('import-modal').classList.remove('hidden')"
                     class="bg-gray-100 text-gray-600 px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition">
                     <i class="fa-solid fa-file-csv mr-1"></i> Importar CSV

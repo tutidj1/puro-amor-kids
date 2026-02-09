@@ -31,177 +31,219 @@ btnCargar.addEventListener('click', async () => {
 
     setLoading(true);
 
-    Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true, // Auto-converts numbers
-        transformHeader: (h) => h.trim().toLowerCase(), // Normalize headers
-        complete: async function (results) {
-            const rawData = results.data;
-            console.log("Datos crudos:", rawData);
+    // 1. Detect Delimiter (Comma vs Semicolon)
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const text = e.target.result;
+        const firstLine = text.split('\n')[0];
 
-            if (rawData.length === 0) {
-                setLoading(false);
-                setStatus("El archivo está vacío.", "error");
-                return;
-            }
-
-            // PROCESAMIENTO: Agrupación por Nombre y Conteo de Variantes
-            const productsMap = new Map();
-            /* 
-               Estructura del Map:
-               Key: "Nombre producto" (string normalizado)
-               Value: {
-                   id: timestamp + random,
-                   name: "Nombre Original",
-                   price: 1234,
-                   image: "nombre.jpg",
-                   category: "General",
-                   variantsMap: Map<"Color|Size|Section", { color, size, section, stock }>
-               }
-            */
-
-            let processedCount = 0;
-            let skippedCount = 0;
-
-            rawData.forEach((row, index) => {
-                // Normalizamos las keys para ser tolerantes a espacios o mayúsculas
-                // Pero buscamos las columnas específicas pedidas por el usuario
-
-                // Helper para buscar key insensible a case/espacios
-                const getVal = (possibleKeys) => {
-                    const keys = Object.keys(row);
-                    const match = keys.find(k => possibleKeys.includes(k.trim().toLowerCase()));
-                    return match ? row[match] : undefined;
-                };
-
-                const name = getVal(['nombre producto', 'nombre']);
-                const price = getVal(['precio']);
-                const image = getVal(['nombre del archivo imagen', 'imagen', 'foto', 'archivo']);
-                const category = getVal(['categoria', 'categoría', 'seccion']);
-
-                // Nuevos valores Costo y Recargo (Soportando 0,5 o 0.5)
-                let costPriceRaw = getVal(['costo', 'cost', 'precio costo', 'cost price']);
-                let markupRaw = getVal(['recargo', 'markup', '% recargo', 'porcentaje recargo', 'ganancia']);
-
-                const parseDecimal = (val) => {
-                    if (typeof val === 'number') return val;
-                    if (!val) return 0;
-                    return parseFloat(String(val).replace(',', '.')) || 0;
-                };
-
-                const costPrice = parseDecimal(costPriceRaw);
-                const markupPercentage = parseDecimal(markupRaw);
-
-                // CÁLCULO DE PRECIO AUTOMÁTICO
-                // Si hay costo y recargo, el precio se calcula. Si no, se usa la columna precio.
-                let finalPrice = Number(price) || 0;
-                if (costPrice > 0 && markupPercentage > 0) {
-                    finalPrice = costPrice * (1 + markupPercentage);
-                    // Redondear a decena
-                    finalPrice = Math.ceil(finalPrice / 10) * 10;
-                }
-
-                // Variantes
-                const size = getVal(['talle', 'talla']);
-                const color = getVal(['color']);
-
-                if (!name) {
-                    skippedCount++;
-                    return;
-                }
-
-                const cleanName = String(name).trim();
-                const variantKey = `${String(color || 'Unico').trim()}|${String(size || 'U').trim()}|${String(category || 'General').trim()}`;
-
-                // 1. Crear o Recuperar Producto
-                if (!productsMap.has(cleanName)) {
-                    productsMap.set(cleanName, {
-                        id: Date.now() + index, // ID único
-                        name: cleanName,
-                        price: finalPrice, // Usamos el precio calculado
-                        costPrice: costPrice,
-                        markupPercentage: markupPercentage,
-                        image: image ? String(image).trim() : 'https://via.placeholder.com/150',
-                        category: getStandardCategory(category),
-                        variantsMap: new Map() // Usamos un mapa interno para agrupar variantes y contar stock
-                    });
-                }
-
-                const product = productsMap.get(cleanName);
-
-                // 2. Manejar Variante (Conteo de Stock)
-                if (product.variantsMap.has(variantKey)) {
-                    product.variantsMap.get(variantKey).stock += 1;
-                } else {
-                    product.variantsMap.set(variantKey, {
-                        id: Date.now() + Math.random(),
-                        color: String(color || 'Único').trim(),
-                        size: String(size || 'U').trim(),
-                        section: getStandardCategory(category || product.category),
-                        stock: 1 // Primera aparición cuenta como 1
-                    });
-                }
-                processedCount++;
-            });
-
-            // Convertir la estructura intermedia a la estructura final de Firestore
-            const productsToUpload = [];
-            productsMap.forEach(p => {
-                const finalVariants = Array.from(p.variantsMap.values());
-
-                // Actualizamos la categoría principal si hay variantes (usamos la de la primera variante como default)
-                // Esto es opcional, pero mantiene coherencia
-                if (finalVariants.length > 0) {
-                    p.category = finalVariants[0].section;
-                }
-
-                productsToUpload.push({
-                    id: p.id,
-                    name: p.name,
-                    price: p.price,
-                    costPrice: p.costPrice,
-                    markupPercentage: p.markupPercentage,
-                    image: p.image,
-                    category: p.category,
-                    variants: finalVariants
-                });
-            });
-
-            if (productsToUpload.length === 0) {
-                setLoading(false);
-                setStatus("No se encontraron productos válidos. Revisa las columnas (Nombre producto, Precio, etc).", "error");
-                return;
-            }
-
-            try {
-                console.log(`Subiendo ${productsToUpload.length} productos...`);
-                await uploadToFirestore(productsToUpload);
-                setLoading(false);
-                setStatus(`¡Éxito! Procesados ${processedCount} registros. Creados ${productsToUpload.length} productos con sus variantes.`, "success");
-
-                // Trigger Auto-Normalization
-                if (window.normalizeDatabase) {
-                    console.log("Iniciando normalización automática...");
-                    window.normalizeDatabase(true);
-                }
-
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
-
-            } catch (error) {
-                console.error("Error subiendo a Firebase:", error);
-                setLoading(false);
-                setStatus("Error al subir datos. Revisa la consola.", "error");
-            }
-        },
-        error: function (error) {
-            console.error("Error parseando CSV:", error);
-            setLoading(false);
-            setStatus("Error crítico al leer el archivo CSV.", "error");
+        let delimiter = ',';
+        if ((firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length) {
+            delimiter = ';';
         }
-    });
+
+        console.log(`Delimitador detectado: "${delimiter}"`);
+
+        // 2. Parse with detected delimiter
+        Papa.parse(file, {
+            header: true,
+            delimiter: delimiter, // Force detected delimiter
+            skipEmptyLines: true,
+            dynamicTyping: true,
+            transformHeader: (h) => {
+                // Remove BOM, quotes, and whitespace, then lowercase
+                return h.replace(/^\uFEFF/, '').replace(/["']/g, '').trim().toLowerCase();
+            },
+            complete: async function (results) {
+                try {
+                    const rawData = results.data;
+                    console.log("Datos crudos:", rawData);
+
+                    if (rawData.length === 0) {
+                        setLoading(false);
+                        setStatus("El archivo está vacío o no se pudo leer.", "error");
+                        return;
+                    }
+
+                    const productsMap = new Map();
+                    let processedCount = 0;
+                    let skippedCount = 0;
+
+                    rawData.forEach((row, index) => {
+                        const getVal = (possibleKeys) => {
+                            const keys = Object.keys(row);
+                            // Exact match preferred
+                            const match = keys.find(k => possibleKeys.includes(k));
+                            return match ? row[match] : undefined;
+                        };
+
+                        // MAPPING: {Nombre; Talle; Color; Precio al costo; Porcentaje de recargo; Precio; URL foto; Tipo de ropa; Categoria}
+                        // Note: Keys are lowercased by transformHeader
+
+                        const name = getVal(['nombre', 'nombre producto']);
+                        // Validation: Must have name
+                        if (!name) {
+                            // Try to see if it's a "ghost" row or header repetition
+                            skippedCount++;
+                            return;
+                        }
+
+                        const size = getVal(['talle', 'talla']);
+                        const color = getVal(['color']);
+
+                        const costPriceRaw = getVal(['precio al costo', 'costo', 'precio costo', 'cost price']);
+                        const markupRaw = getVal(['porcentaje de recargo', 'recargo', 'porcentaje recargo', 'ganancia']);
+
+                        const price = getVal(['precio', 'precio final', 'precio venta']);
+                        const imageRaw = getVal(['url foto', 'foto', 'imagen', 'link foto']);
+
+                        const clothingType = getVal(['tipo de ropa', 'tipo', 'prenda']);
+                        const category = getVal(['categoria', 'categoría', 'seccion', 'sección']);
+
+                        // Parsing Numbers
+                        const parseDecimal = (val) => {
+                            if (typeof val === 'number') return val;
+                            if (!val) return 0;
+                            // Remove $ symbol if present, replace comma
+                            const clean = String(val).replace('$', '').replace(/\s/g, '').replace(',', '.');
+                            return parseFloat(clean) || 0;
+                        };
+
+                        const costPrice = parseDecimal(costPriceRaw);
+                        const markupPercentage = parseDecimal(markupRaw);
+
+                        let finalPrice = Number(parseDecimal(price)) || 0;
+
+                        // Auto-Calculate Price if needed
+                        if (costPrice > 0 && markupPercentage > 0) {
+                            let markupFactor = markupPercentage;
+                            // If user puts "30", treat as 30%. If "0.3", treat as 30%.
+                            if (markupPercentage > 1) markupFactor = markupPercentage / 100;
+
+                            finalPrice = costPrice * (1 + markupFactor);
+                            finalPrice = Math.ceil(finalPrice / 10) * 10;
+                        }
+
+                        const cleanName = String(name).trim();
+                        const cleanColor = String(color || 'Unico').trim();
+                        const variantKey = `${cleanColor}|${String(size || 'U').trim()}|${String(category || 'General').trim()}`;
+
+                        if (!productsMap.has(cleanName)) {
+                            productsMap.set(cleanName, {
+                                id: Date.now() + index,
+                                name: cleanName,
+                                price: finalPrice,
+                                costPrice: costPrice,
+                                markupPercentage: markupPercentage,
+                                image: '',
+                                category: getStandardCategory(category),
+                                clothingType: clothingType ? String(clothingType).trim() : 'General',
+                                imagesByColor: {},
+                                variantsMap: new Map()
+                            });
+                        }
+
+                        const transformDriveUrl = (url) => {
+                            if (!url) return '';
+                            const str = String(url).trim();
+                            const fileDMatch = str.match(/\/file\/d\/([-\w]+)/);
+                            if (fileDMatch && fileDMatch[1]) return `https://drive.google.com/uc?export=view&id=${fileDMatch[1]}`;
+                            const idParamMatch = str.match(/[?&]id=([-\w]+)/);
+                            if (idParamMatch && idParamMatch[1]) return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
+                            if (str.includes('drive.google.com') || str.includes('docs.google.com')) {
+                                const broadMatch = str.match(/[-\w]{25,}/);
+                                if (broadMatch) return `https://drive.google.com/uc?export=view&id=${broadMatch[0]}`;
+                            }
+                            return str;
+                        };
+
+                        const image = transformDriveUrl(imageRaw);
+                        const product = productsMap.get(cleanName);
+
+                        if (clothingType && product.clothingType === 'General') product.clothingType = String(clothingType).trim();
+                        if (image && cleanColor !== 'Unico') product.imagesByColor[cleanColor] = image;
+                        if (image && (!product.image || product.image === '')) product.image = image;
+
+                        if (product.variantsMap.has(variantKey)) {
+                            product.variantsMap.get(variantKey).stock += 1;
+                        } else {
+                            product.variantsMap.set(variantKey, {
+                                id: Date.now() + Math.random(),
+                                color: cleanColor,
+                                size: String(size || 'U').trim(),
+                                section: getStandardCategory(category || product.category),
+                                stock: 1
+                            });
+                        }
+                    });
+
+                    // 3. FINALIZAR
+                    const productsToUpload = [];
+                    productsMap.forEach(p => {
+                        const finalVariants = Array.from(p.variantsMap.values());
+                        if (p.category === 'General' && finalVariants.length > 0) p.category = finalVariants[0].section;
+
+                        finalVariants.forEach(v => {
+                            if (p.imagesByColor[v.color]) v.image = p.imagesByColor[v.color];
+                            else if (!v.image && p.image) v.image = p.image;
+                        });
+
+                        if ((!p.image || p.image.includes('placeholder')) && Object.keys(p.imagesByColor).length > 0) {
+                            p.image = p.imagesByColor[Object.keys(p.imagesByColor)[0]];
+                        }
+
+                        productsToUpload.push({
+                            id: p.id,
+                            name: p.name,
+                            price: p.price,
+                            costPrice: p.costPrice,
+                            markupPercentage: p.markupPercentage,
+                            image: p.image || '',
+                            category: p.category,
+                            clothingType: p.clothingType || 'Varios',
+                            imagesByColor: p.imagesByColor || {},
+                            variants: finalVariants
+                        });
+                    });
+
+                    if (productsToUpload.length === 0) {
+                        setLoading(false);
+                        const firstRow = rawData[0] || {};
+                        const detectedKeys = Object.keys(firstRow).join("; ");
+                        setStatus(`
+                            <strong>No se importaron productos.</strong><br>
+                            Delimitador usado: [${delimiter}]<br>
+                            Filas leídas: ${rawData.length}<br>
+                            Filas saltadas: ${skippedCount}<br>
+                            <hr class="my-2 border-gray-200">
+                            <strong>Columnas encontradas:</strong><br>
+                            <span class="text-xs font-mono bg-gray-100 p-1 rounded block mt-1">${detectedKeys}</span>
+                        `, "error");
+                        return;
+                    }
+
+                    console.log(`Subiendo ${productsToUpload.length} productos...`);
+                    await uploadToFirestore(productsToUpload);
+                    setLoading(false);
+                    setStatus(`¡Éxito! Procesados ${rawData.length - skippedCount} registros. Creados ${productsToUpload.length} productos.`, "success");
+
+                    if (window.normalizeDatabase) window.normalizeDatabase(true);
+                    setTimeout(() => location.reload(), 2000);
+
+                } catch (error) {
+                    console.error("Error procesando CSV:", error);
+                    setLoading(false);
+                    setStatus(`Error al procesar: ${error.message}`, "error");
+                }
+            },
+            error: function (error) {
+                console.error("Error parseando CSV:", error);
+                setLoading(false);
+                setStatus(`Error critico leyendo CSV: ${error.message}`, "error");
+            }
+        });
+    };
+    reader.readAsText(file.slice(0, 5000)); // Read first 5KB to detect delimiter
 });
 
 async function uploadToFirestore(items) {

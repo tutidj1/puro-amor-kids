@@ -56,7 +56,6 @@ function loadData() {
     });
 
     // Listen for SALES updates (Real-time History)
-    // We order by timestamp desc to have latest first
     const salesQuery = query(collection(db, "ventas"), orderBy("timestamp", "desc"), limit(200));
     onSnapshot(salesQuery, (snapshot) => {
         allSales = [];
@@ -65,8 +64,57 @@ function loadData() {
         });
         renderAnalytics();
     });
+
+    // Listen for CONFIG updates (Global Toggles)
+    onSnapshot(doc(db, "config", "ui"), (docSnap) => {
+        if (docSnap.exists()) {
+            showOffers = docSnap.data().showOffers || false;
+        } else {
+            // Default if doc doesn't exist
+            showOffers = false;
+        }
+        updateOffersToggleUI();
+    });
 }
 expose('loadData', loadData);
+
+// --- Global Config Logic ---
+let showOffers = false;
+
+function toggleGlobalOffers() {
+    const newState = !showOffers;
+    // Optimistic UI update
+    showOffers = newState;
+    updateOffersToggleUI();
+
+    setDoc(doc(db, "config", "ui"), { showOffers: newState }, { merge: true })
+        .then(() => {
+            console.log("Config updated:", newState);
+        })
+        .catch((err) => {
+            console.error("Error updating config:", err);
+            alert("Error actualizando configuración");
+            // Revert
+            showOffers = !newState;
+            updateOffersToggleUI();
+        });
+}
+expose('toggleGlobalOffers', toggleGlobalOffers);
+
+function updateOffersToggleUI() {
+    const btn = document.getElementById('btn-global-offers');
+    if (!btn) return;
+
+    if (showOffers) {
+        btn.innerHTML = '<i class="fa-solid fa-eye"></i> Ofertas: ON';
+        btn.classList.remove('bg-gray-700', 'text-gray-400', 'border-gray-600');
+        btn.classList.add('bg-mustard', 'text-gray-900', 'border-mustard');
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-eye-slash"></i> Ofertas: OFF';
+        btn.classList.add('bg-gray-700', 'text-gray-400', 'border-gray-600');
+        btn.classList.remove('bg-mustard', 'text-gray-900', 'border-mustard');
+    }
+}
 
 // Ya no usamos autoSave localStorage. Usamos setDoc directo en las acciones.
 function saveToDisk() {
@@ -344,13 +392,31 @@ expose('itemClick', itemClick);
 // --- STOCK DRAWER ---
 function openStockDrawer(id) {
     editingId = id;
-    const renderForm = (name, price, image, isOffer, offerPrice, costPrice, markup) => `
+    const renderForm = (name, price, image, isOffer, offerPrice, costPrice, markup, clothingType) => `
         <div class="space-y-6">
             <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-4">
                 <h3 class="text-xs font-bold uppercase text-gray-400">Datos Principales</h3>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">Nombre de la Prenda</label>
                     <input type="text" id="edit-name" value="${name}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:bg-white focus:outline-none focus:border-mint font-bold text-gray-800 text-lg placeholder-gray-300" placeholder="Ej: Body Rayado">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Tipo de Ropa</label>
+                    <select id="edit-type" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:bg-white focus:outline-none focus:border-mint font-bold text-gray-700 text-sm">
+                        <option value="General" ${clothingType === 'General' ? 'selected' : ''}>General / Sin especificar</option>
+                        <option value="Bermudas" ${clothingType === 'Bermudas' ? 'selected' : ''}>Bermudas</option>
+                        <option value="Bodys" ${clothingType === 'Bodys' ? 'selected' : ''}>Bodys</option>
+                        <option value="Camperas" ${clothingType === 'Camperas' ? 'selected' : ''}>Camperas</option>
+                        <option value="Conjuntos" ${clothingType === 'Conjuntos' ? 'selected' : ''}>Conjuntos</option>
+                        <option value="Pantalon" ${clothingType === 'Pantalon' ? 'selected' : ''}>Pantalón</option>
+                        <option value="Remeras cortas" ${clothingType === 'Remeras cortas' ? 'selected' : ''}>Remeras Cortas</option>
+                        <option value="Remeras largas" ${clothingType === 'Remeras largas' ? 'selected' : ''}>Remeras Largas</option>
+                        <option value="Ropa interior" ${clothingType === 'Ropa interior' ? 'selected' : ''}>Ropa Interior</option>
+                        <option value="Vestidos" ${clothingType === 'Vestidos' ? 'selected' : ''}>Vestidos</option>
+                        <option value="Zapatillas" ${clothingType === 'Zapatillas' ? 'selected' : ''}>Zapatillas</option>
+                        <option value="Accesorios" ${clothingType === 'Accesorios' ? 'selected' : ''}>Accesorios</option>
+                    </select>
                 </div>
                 
                 <!-- NEW: Cost / Markup / Final Price Grid -->
@@ -369,19 +435,15 @@ function openStockDrawer(id) {
                     </div>
                 </div>
 
+                <!-- Main Image Input Removed as per user request (Now uses variant images) -->
+                <!-- 
                 <div class="grid grid-cols-1 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">Imagen (URL)</label>
-                        <div class="flex gap-2">
-                             <input type="text" id="edit-image" value="${image}" class="w-full border-2 border-gray-100 p-3 rounded-lg focus:border-mint focus:outline-none text-xs" placeholder="https://...">
-                             <label class="cursor-pointer bg-gray-900 text-white w-12 flex items-center justify-center rounded-lg hover:bg-black transition shadow-sm" title="Subir Imagen">
-                                <input type="file" class="hidden" onchange="uploadImage(this)">
-                                <i class="fa-solid fa-cloud-arrow-up"></i>
-                             </label>
-                        </div>
-                        <div id="upload-status" class="text-[10px] font-bold text-mint mt-1 hidden">Subiendo...</div>
+                         ...
                     </div>
-                </div>
+                </div> 
+                -->
 
                 <!-- Oferta Section -->
                 <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-100 mt-2">
@@ -446,7 +508,7 @@ function openStockDrawer(id) {
         tempVariants = JSON.parse(JSON.stringify(p.variants || []));
         drawerTitle.innerText = 'Editar Producto';
         // Pass existing cost/markup or 0
-        drawerBody.innerHTML = renderForm(p.name, p.price, p.image, p.isOffer || false, p.offerPrice || 0, p.costPrice || 0, p.markupPercentage || 0);
+        drawerBody.innerHTML = renderForm(p.name, p.price, p.image, p.isOffer || false, p.offerPrice || 0, p.costPrice || 0, p.markupPercentage || 0, p.clothingType || 'General');
         drawerFooter.innerHTML = `
             <div class="space-y-3">
                 <button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl hover:bg-[#8BCBCB] shadow-lg text-lg">Guardar Cambios</button>
@@ -458,7 +520,7 @@ function openStockDrawer(id) {
         tempVariants = [];
         drawerTitle.innerText = 'Nuevo Producto';
         // Default 0
-        drawerBody.innerHTML = renderForm('', '', '', false, 0, 0, 0);
+        drawerBody.innerHTML = renderForm('', '', '', false, 0, 0, 0, 'General');
         drawerFooter.innerHTML = `<button onclick="preSaveCheck()" class="w-full bg-mint text-white font-bold py-4 rounded-xl shadow-lg text-lg">Crear Producto</button>`;
     }
 
@@ -487,23 +549,34 @@ function renderStockVariants() {
         return;
     }
     list.innerHTML = tempVariants.map((v, idx) => `
-        <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm text-sm group hover:border-mint transition">
-            <div class="flex items-center gap-3">
-                <span class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wide px-2 py-1 rounded font-bold">${v.section || 'Bebés'}</span>
-                <div>
-                    <div class="font-bold text-gray-800">${v.color}</div>
-                    <div class="text-xs text-gray-400">Talle: ${v.size}</div>
+        <div class="bg-white p-3 rounded-lg border border-gray-200 shadow-sm group hover:border-mint transition">
+            <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center gap-3">
+                    <span class="bg-gray-100 text-gray-600 text-[10px] uppercase tracking-wide px-2 py-1 rounded font-bold">${v.section || 'Bebés'}</span>
+                    <div>
+                        <div class="font-bold text-gray-800">${v.color}</div>
+                        <div class="text-xs text-gray-400">Talle: ${v.size}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="flex items-center bg-gray-50 rounded-lg p-1 border">
+                        <button onclick="quickStock(${idx}, -1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white rounded transition"><i class="fa-solid fa-minus text-xs"></i></button>
+                        <span class="w-8 text-center font-bold text-gray-800">${v.stock}</span>
+                        <button onclick="quickStock(${idx}, 1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-white rounded transition"><i class="fa-solid fa-plus text-xs"></i></button>
+                    </div>
+                    <button onclick="removeVariant(${idx})" class="text-gray-300 hover:text-red-500 w-8 h-8 flex items-center justify-center rounded hover:bg-red-50 transition">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="flex items-center bg-gray-50 rounded-lg p-1 border">
-                    <button onclick="quickStock(${idx}, -1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white rounded transition"><i class="fa-solid fa-minus text-xs"></i></button>
-                    <span class="w-8 text-center font-bold text-gray-800">${v.stock}</span>
-                    <button onclick="quickStock(${idx}, 1)" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-white rounded transition"><i class="fa-solid fa-plus text-xs"></i></button>
-                </div>
-                <button onclick="removeVariant(${idx})" class="text-gray-300 hover:text-red-500 w-8 h-8 flex items-center justify-center rounded hover:bg-red-50 transition">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
+            <!-- Variant Image Input -->
+            <div class="relative">
+                <input type="text" 
+                       value="${v.image || ''}" 
+                       onchange="updateVariantImage(${idx}, this.value)"
+                       placeholder="Pegar URL de foto (Drive o directa) para este color..." 
+                       class="w-full text-xs border-b border-gray-100 py-1 text-gray-500 focus:text-gray-800 focus:border-mint focus:outline-none bg-transparent">
+                <i class="fa-solid fa-link absolute right-0 top-1 text-gray-300 text-xs"></i>
             </div>
         </div>
     `).join('');
@@ -518,7 +591,13 @@ function addVariant() {
 
     if (!color || !size) return alert('Por favor completa Color y Talle');
 
-    tempVariants.push({ id: Date.now(), section, color, size, stock });
+    // Variant Image Persistence:
+    // When adding a new variant manually, we can optionally try to inherit image from same color if exists
+    let existingImg = '';
+    const sameColorVar = tempVariants.find(v => v.color.toLowerCase() === color.toLowerCase() && v.image);
+    if (sameColorVar) existingImg = sameColorVar.image;
+
+    tempVariants.push({ id: Date.now(), section, color, size, stock, image: existingImg });
 
     document.getElementById('new-var-color').value = '';
     document.getElementById('new-var-size').value = '';
@@ -540,6 +619,14 @@ function removeVariant(index) {
     renderStockVariants();
 }
 expose('removeVariant', removeVariant);
+
+function updateVariantImage(idx, url) {
+    tempVariants[idx].image = url.trim();
+    // Optional: Auto-transform Drive URL immediately?
+    // Let's do it on Save (preSaveCheck) to keep logic centralized, 
+    // BUT we should iterate over all variants in preSaveCheck to transform their images too.
+}
+expose('updateVariantImage', updateVariantImage);
 
 // --- SAVE TO FIRESTORE ---
 function preSaveCheck() {
@@ -568,15 +655,67 @@ function preSaveCheck() {
         const costPrice = parseFloat(document.getElementById('edit-cost').value) || 0;
         const markupPercentage = parseFloat(document.getElementById('edit-markup').value) || 0;
 
+        // Drive URL Transformer
+        const transformDriveUrl = (url) => {
+            if (!url) return '';
+            const str = String(url).trim();
+
+            // 1. Regex for /file/d/ID (Common "Share" link)
+            const fileDMatch = str.match(/\/file\/d\/([-\w]+)/);
+            if (fileDMatch && fileDMatch[1]) {
+                return `https://drive.google.com/uc?export=view&id=${fileDMatch[1]}`;
+            }
+
+            // 2. Regex for id=ID (Common "Open" link)
+            const idParamMatch = str.match(/[?&]id=([-\w]+)/);
+            if (idParamMatch && idParamMatch[1]) {
+                return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
+            }
+
+            // 3. Fallback: If it's a Drive/Docs link, try to find a long ID string
+            if (str.includes('drive.google.com') || str.includes('docs.google.com')) {
+                const broadMatch = str.match(/[-\w]{25,}/);
+                if (broadMatch) {
+                    return `https://drive.google.com/uc?export=view&id=${broadMatch[0]}`;
+                }
+            }
+
+            // Return original if no match (e.g., normal image URL)
+            return str;
+        };
+
+        // Determine Main Image from Variants
+        // Use the first variant that has an image, or a placeholder
+        let mainImage = 'https://via.placeholder.com/300?text=Sin+Imagen';
+        const variantWithImg = tempVariants.find(v => v.image && v.image.trim() !== '');
+
+        if (variantWithImg) {
+            mainImage = transformDriveUrl(variantWithImg.image);
+        } else if (editingId) {
+            // Try to preserve existing image if strictly needed, but user wanted variant-only source.
+            // If we really want to be safe:
+            const existing = currentInventory.find(p => p.id === editingId);
+            if (existing && existing.image && !existing.image.includes('placeholder')) {
+                mainImage = existing.image;
+            }
+        }
+
         const newProduct = {
             id: parseInt(docId),
             name: name,
             price: parseInt(document.getElementById('edit-price').value) || 0,
             costPrice: costPrice,       // Saved
             markupPercentage: markupPercentage, // Saved
-            image: document.getElementById('edit-image').value,
+            image: mainImage,
+
+            variants: tempVariants.map(v => {
+                // Apply transform to variant images too!
+                if (v.image) v.image = transformDriveUrl(v.image);
+                return v;
+            }),
+
             category: tempVariants.length > 0 ? tempVariants[0].section : 'General',
-            variants: tempVariants,
+            clothingType: document.getElementById('edit-type').value, // Save new Type
             isOffer: isOffer,
             offerPrice: offerPrice
         };
@@ -636,7 +775,7 @@ expose('closeDrawer', closeDrawer);
 function uploadImage(input) {
     // In a real app we would upload to Firebase Storage here
     // For now we just let the user know they can use a URL
-    alert('Por ahora ingresa la URL de la imagen manualmente.');
+    alert('Puedes pegar directamente un enlace de Google Drive en el campo de texto y nosotros lo convertimos automáticamente.');
     // Or implement actual upload if desired
 }
 expose('uploadImage', uploadImage);

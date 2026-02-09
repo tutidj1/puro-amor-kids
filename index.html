@@ -88,7 +88,7 @@
 
             <!-- Desktop Menu -->
             <div class="hidden md:flex gap-8 text-lg font-bold text-gray-500 absolute left-1/2 -translate-x-1/2">
-                <a href="#" class="hover:text-mint transition-colors">Inicio</a>
+                <a href="#" onclick="goHome()" class="hover:text-mint transition-colors">Inicio</a>
                 <a href="#ofertas" id="nav-ofertas" class="hover:text-mint transition-colors">Oferta</a>
                 <a href="#catalogo" class="hover:text-mint transition-colors">Ropa</a>
                 <a href="#contacto" class="hover:text-mint transition-colors">Contacto</a>
@@ -104,91 +104,304 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <header class="relative bg-mint/10 min-h-[75vh] py-12 flex items-center justify-center overflow-hidden">
-        <div class="absolute inset-0 z-0">
-            <!-- Abstract shapes or Hero Image -->
-            <div class="absolute -top-20 -left-20 w-64 h-64 bg-mint/30 rounded-full blur-3xl"></div>
-            <div class="absolute bottom-0 right-0 w-80 h-80 bg-mustard/20 rounded-full blur-3xl"></div>
-        </div>
+    <!-- HOME VIEW VALIDATION -->
+    <div id="home-view">
+        <!-- Hero Section -->
+        <header class="relative bg-mint/10 min-h-[75vh] py-12 flex items-center justify-center overflow-hidden">
+            <div class="absolute inset-0 z-0">
+                <div class="absolute -top-20 -left-20 w-64 h-64 bg-mint/30 rounded-full blur-3xl"></div>
+                <div class="absolute bottom-0 right-0 w-80 h-80 bg-mustard/20 rounded-full blur-3xl"></div>
+            </div>
 
-        <div class="relative z-10 text-center px-4">
-            <span
-                class="inline-block px-4 py-1 mb-4 bg-white/80 backdrop-blur rounded-full text-mustard font-bold text-sm tracking-widest uppercase shadow-sm">Nueva
-                Colección 2026</span>
-            <h1 class="text-6xl md:text-8xl font-bold text-gray-800 mb-6 drop-shadow-sm">Pequeños Momentos</h1>
-            <p class="text-xl md:text-2xl text-gray-600 mb-8 max-w-xl mx-auto font-light">Ropa cómoda y con diseño para
-                acompañar sus primeras aventuras.</p>
-            <a href="#catalogo"
-                class="inline-block bg-mint text-white text-xl font-heading font-bold px-8 py-3 rounded-full shadow-md hover:bg-[#8BCBCB] hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                Ver Catálogo
-            </a>
-        </div>
-    </header>
-
-    <!-- Offers Section -->
-    <section id="ofertas" class="py-16 bg-mustard/10 relative overflow-hidden">
-        <!-- Decoration -->
-        <div
-            class="absolute top-0 right-0 w-64 h-64 bg-mustard/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2">
-        </div>
-        <div
-            class="absolute bottom-0 left-0 w-48 h-48 bg-mint/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/3">
-        </div>
-
-        <div class="max-w-6xl mx-auto px-4 relative z-10">
-            <div class="text-center mb-10">
+            <div class="relative z-10 text-center px-4">
                 <span
-                    class="inline-block px-3 py-1 bg-mustard text-white text-xs font-bold uppercase tracking-wider rounded-full mb-3 shadow-sm animate-pulse">¡Imperdible!</span>
-                <h2 class="text-5xl font-heading font-bold text-gray-800">Ofertas Exclusivas</h2>
-                <p class="text-gray-600 mt-2">Productos seleccionados con descuentos especiales.</p>
-            </div>
-
-            <!-- Offers Grid (Carousel-like) -->
-            <div id="offers-grid" class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <!-- Offers injected here -->
-            </div>
-
-            <div class="text-center mt-10">
-                <button
-                    onclick="filterProducts('Ofertas'); document.getElementById('catalogo').scrollIntoView({behavior: 'smooth'})"
-                    class="inline-flex items-center gap-2 border-2 border-gray-800 bg-transparent text-gray-800 font-bold px-8 py-3 rounded-full hover:bg-gray-800 hover:text-white transition-all duration-300">
-                    Ver Todas las Ofertas <i class="fa-solid fa-arrow-right"></i>
+                    class="inline-block px-4 py-1 mb-4 bg-white/80 backdrop-blur rounded-full text-mustard font-bold text-sm tracking-widest uppercase shadow-sm">Nueva
+                    Colección 2026</span>
+                <h1 class="text-6xl md:text-8xl font-bold text-gray-800 mb-6 drop-shadow-sm">Pequeños Momentos</h1>
+                <p class="text-xl md:text-2xl text-gray-600 mb-8 max-w-xl mx-auto font-light">Ropa cómoda y con diseño
+                    para acompañar sus primeras aventuras.</p>
+                <button onclick="filterProducts('all')"
+                    class="inline-block bg-mint text-white text-xl font-heading font-bold px-8 py-3 rounded-full shadow-md hover:bg-[#8BCBCB] hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                    Ver Catálogo
                 </button>
             </div>
-        </div>
+        </header>
+
+        <!-- Offers Section -->
+        <section id="ofertas" class="hidden py-24 bg-mustard/10 relative overflow-hidden">
+            <div
+                class="absolute top-0 right-0 w-64 h-64 bg-mustard/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2">
+            </div>
+            <div
+                class="absolute bottom-0 left-0 w-48 h-48 bg-mint/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/3">
+            </div>
+
+            <div class="max-w-6xl mx-auto px-4 relative z-10">
+                <div class="text-center mb-10">
+                    <span
+                        class="inline-block px-3 py-1 bg-mustard text-white text-xs font-bold uppercase tracking-wider rounded-full mb-3 shadow-sm animate-pulse">¡Imperdible!</span>
+                    <h2 class="text-5xl font-heading font-bold text-gray-800">Ofertas Exclusivas</h2>
+                    <p class="text-gray-600 mt-2">Productos seleccionados con descuentos especiales.</p>
+                </div>
+
+                <div id="offers-grid" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+                    <!-- Offers injected here -->
+                </div>
+
+                <div class="text-center" id="btn-ver-ofertas-container">
+                    <button onclick="filterProducts('Ofertas')"
+                        class="inline-flex items-center gap-2 border-2 border-gray-800 bg-transparent text-gray-800 font-bold px-8 py-3 rounded-full hover:bg-gray-800 hover:text-white transition-all duration-300">
+                        Ver Todas las Ofertas <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
     </section>
 
-    <!-- Product Grid -->
-    <section id="catalogo" class="py-16 max-w-6xl mx-auto px-4">
+    <!-- Home Category Preview -->
+    <section id="catalogo-preview" class="py-16 max-w-6xl mx-auto px-4">
         <div class="text-center mb-12">
-            <h2 class="text-5xl font-bold text-gray-800 mb-2">Nuestro Catálogo</h2>
+            <h2 class="text-5xl font-bold text-gray-800 mb-2">Explora por Categoría</h2>
             <div class="w-24 h-1 bg-mustard mx-auto rounded-full"></div>
         </div>
 
-        <!-- Filters (Simple) -->
-        <div class="flex justify-center gap-4 mb-10 overflow-x-auto py-2">
-            <button class="px-6 py-2 rounded-full bg-gray-800 text-white font-bold shadow-md whitespace-nowrap"
-                onclick="filterProducts('all')">Todos</button>
-            <button
-                class="px-6 py-2 rounded-full bg-white text-gray-600 border border-gray-200 hover:border-mint hover:text-mint font-bold shadow-sm whitespace-nowrap transition-colors"
-                onclick="filterProducts('Bebés')">Bebés</button>
-            <button
-                class="px-6 py-2 rounded-full bg-white text-gray-600 border border-gray-200 hover:border-mint hover:text-mint font-bold shadow-sm whitespace-nowrap transition-colors"
-                onclick="filterProducts('No caminantes')">No caminantes</button>
-            <button
-                class="px-6 py-2 rounded-full bg-white text-gray-600 border border-gray-200 hover:border-mint hover:text-mint font-bold shadow-sm whitespace-nowrap transition-colors"
-                onclick="filterProducts('Niñas')">Niñas</button>
-            <button
-                class="px-6 py-2 rounded-full bg-white text-gray-600 border border-gray-200 hover:border-mint hover:text-mint font-bold shadow-sm whitespace-nowrap transition-colors"
-                onclick="filterProducts('Niños')">Niños</button>
-        </div>
-
-        <!-- Grid Container -->
-        <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            <!-- Products will be injected here by JS -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <button onclick="filterProducts('Bebés')"
+                class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-mint transition group text-center">
+                <div
+                    class="w-16 h-16 bg-mint/10 text-mint rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-mint group-hover:text-white transition">
+                    <i class="fa-solid fa-baby text-3xl"></i>
+                </div>
+                <h3 class="font-bold text-gray-800 text-xl font-heading">Bebés</h3>
+            </button>
+            <button onclick="filterProducts('No caminantes')"
+                class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-mint transition group text-center">
+                <div
+                    class="w-16 h-16 bg-mustard/10 text-mustard rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-mustard group-hover:text-white transition">
+                    <i class="fa-solid fa-socks text-3xl"></i>
+                </div>
+                <h3 class="font-bold text-gray-800 text-xl font-heading">No Caminantes</h3>
+            </button>
+            <button onclick="filterProducts('Niñas')"
+                class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-mint transition group text-center">
+                <div
+                    class="w-16 h-16 bg-pink-100 text-pink-400 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-pink-400 group-hover:text-white transition">
+                    <i class="fa-solid fa-child-dress text-3xl"></i>
+                </div>
+                <h3 class="font-bold text-gray-800 text-xl font-heading">Niñas</h3>
+            </button>
+            <button onclick="filterProducts('Niños')"
+                class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-mint transition group text-center">
+                <div
+                    class="w-16 h-16 bg-blue-100 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-400 group-hover:text-white transition">
+                    <i class="fa-solid fa-child text-3xl"></i>
+                </div>
+                <h3 class="font-bold text-gray-800 text-xl font-heading">Niños</h3>
+            </button>
         </div>
     </section>
+    </div>
+    </section>
+
+    <!-- Clothing Type Rows (Dynamic) - MOVED TO BOTTOM -->
+    <section id="type-rows" class="py-12 max-w-6xl mx-auto px-4 space-y-12 mb-20">
+        <!-- Rows injected by JS -->
+    </section>
+    </div>
+
+
+    <!-- CATEGORY VIEW (New Page style) -->
+    <div id="category-view" class="hidden min-h-screen bg-gray-50 flex flex-col">
+        <!-- Header / Breadcrumbs -->
+        <div class="bg-white border-b sticky top-[72px] z-40 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 pt-4 pb-1 flex items-center gap-2 text-sm text-gray-500">
+                <a href="#" onclick="goHome()" class="hover:text-mint"><i class="fa-solid fa-home"></i></a>
+                <span>/</span>
+                <span id="cat-view-title" class="font-bold text-gray-800">Categoría</span>
+            </div>
+
+            <!-- Category Navigation Bar (Mini) -->
+            <div class="max-w-7xl mx-auto px-4 pb-4 pt-1 overflow-x-auto">
+                <div class="flex gap-4 min-w-max" id="category-nav-bar">
+                    <button onclick="filterProducts('Bebés')"
+                        class="cat-nav-btn px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-bold text-sm hover:border-mint hover:text-mint transition flex items-center gap-2"
+                        data-cat="Bebés">
+                        <i class="fa-solid fa-baby"></i> Bebés
+                    </button>
+                    <button onclick="filterProducts('No caminantes')"
+                        class="cat-nav-btn px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-bold text-sm hover:border-mustard hover:text-mustard transition flex items-center gap-2"
+                        data-cat="No caminantes">
+                        <i class="fa-solid fa-socks"></i> No Caminantes
+                    </button>
+                    <button onclick="filterProducts('Niñas')"
+                        class="cat-nav-btn px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-bold text-sm hover:border-pink-400 hover:text-pink-400 transition flex items-center gap-2"
+                        data-cat="Niñas">
+                        <i class="fa-solid fa-child-dress"></i> Niñas
+                    </button>
+                    <button onclick="filterProducts('Niños')"
+                        class="cat-nav-btn px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-bold text-sm hover:border-blue-400 hover:text-blue-400 transition flex items-center gap-2"
+                        data-cat="Niños">
+                        <i class="fa-solid fa-child"></i> Niños
+                    </button>
+                    <button onclick="filterProducts('Ofertas')" id="cat-nav-ofertas"
+                        class="cat-nav-btn px-4 py-2 rounded-full border border-gray-200 text-gray-600 font-bold text-sm hover:border-red-500 hover:text-red-500 transition flex items-center gap-2"
+                        data-cat="Ofertas">
+                        <i class="fa-solid fa-tags"></i> Ofertas
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 py-8 flex gap-8 flex-1 w-full relative">
+
+            <!-- Sidebar Filters -->
+            <aside class="w-64 flex-none hidden md:block space-y-8 sticky top-32 self-start h-fit">
+                <!-- Filter Group: Type -->
+                <div>
+                    <h4 class="font-bold text-gray-800 mb-3 uppercase tracking-wide text-xs">Tipo de Ropa
+                    </h4>
+                    <div id="filter-type-container" class="space-y-2">
+                        <!-- Checkboxes injected here -->
+                    </div>
+                </div>
+
+                <!-- Filter Group: Color -->
+                <div>
+                    <h4 class="font-bold text-gray-800 mb-3 uppercase tracking-wide text-xs">Colores</h4>
+                    <div id="filter-color-container" class="flex flex-wrap gap-2">
+                        <!-- Color chips injected here -->
+                    </div>
+                </div>
+
+                <!-- Filter Group: Size -->
+                <div>
+                    <h4 class="font-bold text-gray-800 mb-3 uppercase tracking-wide text-xs">Talles</h4>
+                    <div id="filter-size-container" class="flex flex-wrap gap-2">
+                        <!-- Size chips injected here -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Product Grid -->
+            <div class="flex-1">
+                <!-- Mobile Filter Toggle (Visible only on mobile) -->
+                <div class="md:hidden mb-4">
+                    <button onclick="document.getElementById('mobile-filters').classList.remove('hidden')"
+                        class="w-full bg-white border border-gray-200 py-2 rounded-lg font-bold text-gray-600 shadow-sm">
+                        <i class="fa-solid fa-filter mr-2"></i> Filtrar
+                    </button>
+                </div>
+
+                <div id="category-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Products injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRODUCT DETAIL VIEW (Full Page) -->
+    <div id="product-page-view" class="hidden min-h-screen bg-white">
+        <div class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Breadcrumbs -->
+            <div class="mb-6 flex items-center gap-2 text-sm text-gray-500">
+                <a href="#" onclick="goHome()" class="hover:text-mint">Inicio</a>
+                <span>/</span>
+                <a href="#" onclick="goBackToCategory()" class="hover:text-mint" id="breadcrumb-cat">Categoría</a>
+                <span>/</span>
+                <span id="breadcrumb-name" class="font-bold text-gray-800">Producto</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-12">
+                <!-- Gallery Section (Left) -->
+                <div class="md:col-span-7 flex gap-4">
+                    <!-- Thumbnails (Vertical) -->
+                    <div class="hidden md:flex flex-col gap-4 w-20 overflow-y-auto max-h-[600px] scrollbar-hide"
+                        id="p-thumbnails">
+                        <!-- Thumbs injected -->
+                    </div>
+
+                    <!-- Main Image -->
+                    <div
+                        class="flex-1 bg-gray-100 rounded-2xl overflow-hidden relative shadow-inner aspect-[4/5] md:aspect-auto md:h-[600px]">
+                        <img id="p-main-img" src="" class="w-full h-full object-cover">
+                        <div id="p-badges" class="absolute top-4 left-4 flex flex-col gap-2"></div>
+                    </div>
+                </div>
+
+                <!-- Details Section (Right) -->
+                <div class="md:col-span-5 flex flex-col">
+                    <h1 id="p-title"
+                        class="text-4xl md:text-5xl font-heading font-bold text-gray-900 mb-2 leading-none">
+                    </h1>
+                    <div class="text-sm text-gray-400 mb-4" id="p-subtitle"></div>
+
+                    <div class="mb-6">
+                        <span id="p-price" class="text-3xl font-bold text-gray-900"></span>
+                    </div>
+
+                    <div class="border-t border-gray-100 py-6 space-y-6">
+                        <!-- Variant Selector -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-3">Colores
+                                Disponibles:</label>
+                            <div id="p-colors" class="flex flex-wrap gap-3">
+                                <!-- Colors injected -->
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-3">Talles:</label>
+                            <div id="p-sizes" class="flex flex-wrap gap-2">
+                                <!-- Sizes injected -->
+                            </div>
+                        </div>
+
+                        <!-- Quantity -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-3">Cantidad:</label>
+                            <div class="flex items-center gap-4">
+                                <div class="flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
+                                    <button onclick="changePageQty(-1)"
+                                        class="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-white rounded-full transition font-bold text-lg">-</button>
+                                    <span id="p-qty" class="w-12 text-center font-bold text-gray-800 text-lg">1</span>
+                                    <button onclick="changePageQty(1)"
+                                        class="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-white rounded-full transition font-bold text-lg">+</button>
+                                </div>
+                                <div class="text-xs text-gray-400" id="p-stock-msg"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto pt-6">
+                        <button id="p-add-btn"
+                            class="w-full bg-gray-900 text-white text-xl font-heading font-bold py-4 rounded-xl hover:bg-mustard hover:text-gray-900 transition-colors shadow-lg flex items-center justify-center gap-2">
+                            <span>Agregar al Carrito</span>
+                            <i class="fa-solid fa-bag-shopping"></i>
+                        </button>
+                    </div>
+
+                    <div class="mt-8 text-sm text-gray-500 leading-relaxed bg-gray-50 p-6 rounded-xl" id="p-desc"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Filters Modal -->
+    <div id="mobile-filters" class="fixed inset-0 z-[60] hidden bg-black/50"
+        onclick="if(event.target === this) this.classList.add('hidden')">
+        <div class="absolute right-0 top-0 h-full w-4/5 bg-white shadow-xl p-6 overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">Filtrar</h3>
+                <button onclick="document.getElementById('mobile-filters').classList.add('hidden')"
+                    class="text-2xl">&times;</button>
+            </div>
+            <!-- Mobile Filters Content (Cloned via JS or Separate) -->
+            <div id="mobile-filter-content" class="space-y-8"></div>
+            <button onclick="document.getElementById('mobile-filters').classList.add('hidden')"
+                class="w-full bg-mint text-white font-bold py-3 rounded-xl mt-8">Ver Resultados</button>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer id="contacto" class="bg-gray-800 text-white py-12 mt-12">
@@ -243,59 +456,7 @@
         </div>
     </div>
 
-    <!-- Product Details Modal -->
-    <div id="product-modal"
-        class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0">
-        <div class="bg-white rounded-3xl w-full max-w-2xl shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto"
-            id="product-modal-content">
-            <div class="grid md:grid-cols-2">
-                <!-- Image -->
-                <div class="h-64 md:h-full bg-gray-100 relative">
-                    <img id="modal-img" src="" class="w-full h-full object-cover">
-                    <button onclick="closeProductModal()"
-                        class="md:hidden absolute top-4 right-4 bg-white/80 rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm">&times;</button>
-                </div>
-                <!-- Details -->
-                <div class="p-8 flex flex-col">
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 id="modal-title" class="text-3xl font-bold text-gray-800 leading-tight">Product Name</h3>
-                        <button onclick="closeProductModal()"
-                            class="hidden md:block text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                    </div>
-                    <p id="modal-price" class="text-2xl font-bold text-mint mb-4">$0</p>
-                    <p id="modal-desc" class="text-gray-600 mb-6 leading-relaxed">Description goes here.</p>
-
-                    <!-- Size Selector -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">Elegir
-                            Talle:</label>
-                        <div id="modal-sizes" class="flex flex-wrap gap-2">
-                            <!-- Size chips injected here -->
-                        </div>
-                    </div>
-
-                    <!-- Quantity Selector -->
-                    <div class="mb-8 flex items-center gap-4">
-                        <label class="block text-sm font-bold text-gray-500 uppercase tracking-wide">Cantidad:</label>
-                        <div class="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
-                            <button onclick="changeQty(-1)"
-                                class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-white rounded transition font-bold text-lg">-</button>
-                            <span id="modal-qty" class="w-10 text-center font-bold text-gray-800 text-lg">1</span>
-                            <button onclick="changeQty(1)"
-                                class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-green-500 hover:bg-white rounded transition font-bold text-lg">+</button>
-                        </div>
-                    </div>
-
-                    <div class="mt-auto">
-                        <button id="add-to-cart-btn"
-                            class="w-full bg-gray-800 text-white text-xl font-heading font-bold py-3 rounded-xl hover:bg-mustard hover:text-gray-900 transition-colors shadow-lg">
-                            Agregar al Carrito
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Old Product Modal Removed -->
 
     <!-- Checkout Modal -->
     <div id="checkout-modal"
@@ -354,7 +515,8 @@
                                     placeholder="Ej: Juan Pérez">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Teléfono /
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Teléfono
+                                    /
                                     WhatsApp</label>
                                 <input type="tel" required name="telefono"
                                     class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
@@ -362,7 +524,8 @@
                             </div>
                             <!-- City and CP removed as requested -->
                             <div>
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dirección / Punto de
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Dirección /
+                                    Punto de
                                     Retiro</label>
                                 <input type="text" required name="direccion"
                                     class="w-full border-2 border-gray-100 rounded-xl p-3 focus:outline-none focus:border-mint font-bold text-gray-700 bg-gray-50 transition-colors"
@@ -395,7 +558,8 @@
                                 </div>
                                 <div class="flex-1">
                                     <h5 class="font-bold text-gray-800">Mercado Pago</h5>
-                                    <p class="text-xs text-gray-500">Tarjetas, Rapipago, PagoFácil o Dinero en cuenta.
+                                    <p class="text-xs text-gray-500">Tarjetas, Rapipago, PagoFácil o Dinero
+                                        en cuenta.
                                     </p>
                                 </div>
                                 <div class="absolute inset-0 border-2 border-mint rounded-xl transition-all">
@@ -448,8 +612,8 @@
                             <button type="button" onclick="processPayment()"
                                 class="flex-1 bg-mint text-white font-bold py-3 rounded-xl hover:bg-[#8BCBCB] transition-transform active:scale-95 shadow-lg relative overflow-hidden"
                                 id="pay-btn">
-                                <span class="relative z-10 flex items-center justify-center gap-2">Pagar Ahora <i
-                                        class="fa-solid fa-lock"></i></span>
+                                <span class="relative z-10 flex items-center justify-center gap-2">Pagar
+                                    Ahora <i class="fa-solid fa-lock"></i></span>
                             </button>
                         </div>
                     </div>
@@ -502,7 +666,7 @@
     <script src="products.js"></script>
 
     <!-- App Logic -->
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=2"></script>
 </body>
 
 </html>

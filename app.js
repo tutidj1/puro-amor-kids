@@ -255,23 +255,24 @@ function renderOffers() {
             const safeId = typeof p.id === 'string' ? `'${p.id}'` : p.id;
 
             return `
-            <div class="bg-white rounded-2xl p-4 shadow-sm border border-yellow-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-yellow-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col">
                 <div class="relative h-48 rounded-xl overflow-hidden mb-4 cursor-pointer" onclick="openProductPage(${safeId})">
-                    <img src="${image}" class="w-full h-full object-cover">
-                    <span class="absolute top-2 right-2 bg-red-500 text-white font-bold text-xs px-2 py-1 rounded-full shadow-sm">-${discount}%</span>
-                </div>
-                <div class="text-center">
-                    <h3 class="font-bold text-gray-800 text-lg mb-1 leading-none font-heading">${p.name || 'Producto'}</h3>
-                    <div class="flex justify-center items-center gap-2 mb-3">
-                        <span class="text-gray-400 line-through text-sm">$${price.toLocaleString()}</span>
-                        <span class="text-red-500 font-bold text-xl">$${offerPrice.toLocaleString()}</span>
+                    <img src="${image}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110">
+                    <div class="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-sm">
+                        -${discount}% OFF
                     </div>
-                    <button onclick="openProductPage(${safeId})" class="w-full py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-mustard hover:text-gray-900 transition-colors">
-                        Ver Oferta
-                    </button>
                 </div>
+                <h3 class="font-bold text-gray-800 text-lg mb-1 truncate">${p.name}</h3>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-gray-400 line-through text-sm">$${price.toLocaleString()}</span>
+                    <span class="text-red-500 font-bold text-xl">$${offerPrice.toLocaleString()}</span>
+                </div>
+                <button onclick="openProductPage(${safeId})" class="w-full bg-red-50 text-red-500 font-bold py-2 rounded-lg hover:bg-red-500 hover:text-white transition-colors mt-auto">
+                    Ver Oferta
+                </button>
             </div>
-        `}).join('');
+            `;
+        }).join('');
     } catch (err) {
         console.error("Error rendering offers:", err);
         container.innerHTML = '<div class="text-red-500 text-center col-span-4">Error cargando ofertas.</div>';
@@ -1464,7 +1465,12 @@ function showStatus(success, customMsg = null) {
 }
 
 function resetCheckoutUI() {
+    // Hide Success/Error Overlay
     document.getElementById('checkout-status').classList.add('hidden', 'opacity-0');
+
+    // Hide Main Checkout Modal (This fixes the "Return to Form" issue)
+    document.getElementById('checkout-modal').classList.add('hidden', 'opacity-0');
+
     // Reset steps
     currentStep = 1;
     updateCheckoutSteps();
@@ -1472,6 +1478,7 @@ function resetCheckoutUI() {
     // No more radio buttons to reset
     togglePaymentDetails();
 }
+expose('closeCheckout', resetCheckoutUI); // Alias for HTML compatibility
 
 // --- CONFIRMATION MODAL LOGIC ---
 function showSuccessModal() {
